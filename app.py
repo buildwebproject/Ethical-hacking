@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 import json
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 from pathlib import Path
@@ -18,7 +19,7 @@ from scanner.http_projects import SAFE_PROJECT_WORDS, find_project_folders, iter
 from scanner.log_store import read_error_logs, write_error_log
 from scanner.network import NetworkError, get_local_network, validate_private_subnet
 from scanner.port_scanner import parse_ports, scan_device_ports
-from scanner.report import DEFAULT_REPORT_DIR, export_reports, load_latest_json_report
+from scanner.report import DEFAULT_REPORT_DIR, device_to_dict, export_reports, load_latest_json_report
 from scanner.vendor_lookup import lookup_vendor
 from scanner.wifi_info import get_connection_details
 
@@ -31,13 +32,24 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.secret_key = WIFI_SCANNER_SECRET_KEY or secrets.token_hex(32)
 
+    def api_response(data: dict[str, object] | None = None, status: int = 200) -> object:
+        return jsonify({"ok": status < 400, **(data or {})}), status
+
+    def api_error(message: str, status: int = 400, code: str = "api_error") -> object:
+        return api_response({"code": code, "message": message}, status)
+
+    def wants_api_response() -> bool:
+        return request.path.startswith("/api/")
+
     @app.before_request
     def require_login_for_dashboard() -> None | object:
-        public_endpoints = {"login", "static", "client_error", "favicon"}
+        public_endpoints = {"login", "mobile_app", "static", "client_error", "favicon", "api_health", "api_login"}
         if request.endpoint in public_endpoints:
             return None
         if session.get("username"):
             return None
+        if wants_api_response():
+            return api_error("Authentication required.", 401, "auth_required")
         return redirect(url_for("login"))
 
     def login_required(view: F) -> F:
@@ -48,6 +60,38 @@ def create_app() -> Flask:
             return view(*args, **kwargs)
 
         return wrapped  # type: ignore[return-value]
+
+    def api_login_required(view: F) -> F:
+        @wraps(view)
+        def wrapped(*args: object, **kwargs: object) -> object:
+            if not session.get("username"):
+                return api_error("Authentication required.", 401, "auth_required")
+            return view(*args, **kwargs)
+
+        return wrapped  # type: ignore[return-value]
+
+    def request_payload() -> dict[str, object]:
+        if request.is_json:
+            payload = request.get_json(silent=True) or {}
+            return payload if isinstance(payload, dict) else {}
+        return dict(request.form.items())
+
+    def load_report_devices_or_empty() -> list[object]:
+        try:
+            return load_dashboard_devices()
+        except (FileNotFoundError, ValueError):
+            return []
+
+    def serialize_devices(devices: list[object]) -> list[dict[str, object]]:
+        return [device_to_dict(device) for device in devices]
+
+    def dashboard_summary(devices: list[object]) -> dict[str, object]:
+        return {
+            "device_count": len(devices),
+            "online_count": sum(1 for device in devices if getattr(device, "status", "") == "Online"),
+            "open_port_count": sum(len(getattr(device, "open_ports", [])) for device in devices),
+            "has_report": bool(devices),
+        }
 
     def load_dashboard_devices() -> list[object]:
         report_path = Path(DEFAULT_REPORT_DIR) / "network_scan.json"
@@ -91,6 +135,8 @@ def create_app() -> Flask:
             method=request.method,
             exc=exc,
         )
+        if wants_api_response():
+            return api_error(f"Server error: {type(exc).__name__}: {exc}", 500, "server_error")
         flash(f"Server error: {type(exc).__name__}: {exc}", "error")
         if session.get("username"):
             return render_dashboard(), 500
@@ -125,6 +171,206 @@ def create_app() -> Flask:
         if session.get("username"):
             return redirect(url_for("dashboard"))
         return redirect(url_for("login"))
+
+    
+
+    @app.get("/api/v1/health")
+    def api_health() -> object:
+        return api_response(
+            {
+                "service": "NET_SCANNER_API",
+                "version": "v1",
+                "authenticated": bool(session.get("username")),
+            }
+        )
+
+    @app.post("/api/v1/auth/login")
+    def api_login() -> object:
+        payload = request_payload()
+        username = str(payload.get("username", ""))
+        password = str(payload.get("password", ""))
+        try:
+            if not authenticate(username, password):
+                return api_error("Invalid username or password.", 401, "invalid_credentials")
+        except Exception as exc:
+            write_error_log("api-auth", str(exc), route=request.path, method=request.method, exc=exc)
+            return api_error(f"Authentication backend unavailable: {exc}", 503, "auth_backend_unavailable")
+
+        session.clear()
+        session["username"] = username.strip()
+        return api_response({"user": {"username": session["username"]}})
+
+    @app.post("/api/v1/auth/logout")
+    @api_login_required
+    def api_logout() -> object:
+        session.clear()
+        return api_response({"message": "Logged out."})
+
+    @app.get("/api/v1/auth/me")
+    @api_login_required
+    def api_me() -> object:
+        return api_response({"user": {"username": str(session.get("username", ""))}})
+
+    @app.get("/api/v1/network")
+    @api_login_required
+    def api_network() -> object:
+        return api_response({"connection": get_connection_details()})
+
+    @app.get("/api/v1/ports/common")
+    @api_login_required
+    def api_common_ports() -> object:
+        from scanner.port_scanner import COMMON_PORTS
+
+        return api_response(
+            {
+                "ports": [
+                    {"port": port, "service": service}
+                    for port, service in COMMON_PORTS.items()
+                ]
+            }
+        )
+
+    @app.get("/api/v1/devices")
+    @api_login_required
+    def api_devices() -> object:
+        devices = load_report_devices_or_empty()
+        return api_response(
+            {
+                "summary": dashboard_summary(devices),
+                "devices": serialize_devices(devices),
+            }
+        )
+
+    @app.get("/api/v1/summary")
+    @api_login_required
+    def api_summary() -> object:
+        devices = load_report_devices_or_empty()
+        return api_response(
+            {
+                "summary": dashboard_summary(devices),
+                "connection": get_connection_details(),
+                "errors": read_error_logs(limit=10),
+            }
+        )
+
+    @app.post("/api/v1/scan")
+    @api_login_required
+    def api_scan() -> object:
+        payload = request_payload()
+        subnet_input = str(payload.get("subnet", "")).strip()
+        ports_input = str(payload.get("ports", "common")).strip() or "common"
+        include_ports = payload.get("include_ports", True)
+        include_ports = include_ports if isinstance(include_ports, bool) else str(include_ports).lower() not in {"0", "false", "no"}
+        save_report = payload.get("save_report", True)
+        save_report = save_report if isinstance(save_report, bool) else str(save_report).lower() not in {"0", "false", "no"}
+        started_at = time.perf_counter()
+
+        try:
+            if subnet_input:
+                subnet = validate_private_subnet(subnet_input)
+                local_ip = "manual"
+            else:
+                local_ip, subnet = get_local_network()
+            ports = parse_ports(ports_input) if include_ports else []
+            devices = discover_devices(str(subnet))
+            if include_ports and devices:
+                scan_ports_for_devices(devices, ports)
+            if save_report:
+                export_reports(devices)
+        except (NetworkError, ValueError, DiscoveryError, PermissionError) as exc:
+            write_error_log("api-scan", str(exc), route=request.path, method=request.method, exc=exc)
+            return api_error(str(exc), 400, "scan_failed")
+        except Exception as exc:
+            write_error_log("api-scan", str(exc), route=request.path, method=request.method, exc=exc)
+            return api_error(f"Scan failed: {exc}", 500, "scan_failed")
+
+        return api_response(
+            {
+                "message": f"Scan complete for {subnet}.",
+                "subnet": str(subnet),
+                "local_ip": local_ip,
+                "include_ports": include_ports,
+                "saved_report": save_report,
+                "duration_ms": int((time.perf_counter() - started_at) * 1000),
+                "summary": dashboard_summary(devices),
+                "devices": serialize_devices(devices),
+            }
+        )
+
+    @app.post("/api/v1/export")
+    @api_login_required
+    def api_export() -> object:
+        try:
+            devices = load_dashboard_devices()
+        except FileNotFoundError:
+            return api_error("No report found. Run a scan first.", 404, "report_not_found")
+        except ValueError as exc:
+            return api_error(str(exc), 400, "invalid_report")
+        if not devices:
+            return api_error("No report data available. Run a scan first.", 404, "report_empty")
+
+        paths = export_reports(devices)
+        return api_response(
+            {
+                "message": "Reports exported.",
+                "files": [str(path.relative_to(Path(__file__).resolve().parent)) for path in paths],
+            }
+        )
+
+    @app.get("/api/v1/errors")
+    @api_login_required
+    def api_errors() -> object:
+        raw_limit = request.args.get("limit", "100")
+        try:
+            limit = max(1, min(200, int(raw_limit)))
+        except ValueError:
+            limit = 100
+        return api_response({"errors": read_error_logs(limit=limit)})
+
+    @app.get("/api/v1/project-search-words")
+    @api_login_required
+    def api_project_search_words() -> object:
+        return api_response({"words": SAFE_PROJECT_WORDS})
+
+    @app.post("/api/v1/projects/find")
+    @api_login_required
+    def api_find_projects() -> object:
+        payload = request_payload()
+        target_ip = str(payload.get("ip", "")).strip()
+        try:
+            devices = load_dashboard_devices()
+            target_device = next((device for device in devices if device.ip == target_ip), None)
+            if target_device is None:
+                raise ValueError("Target device is not present in the latest scan report.")
+            if not any(port.startswith("80/") for port in target_device.open_ports):
+                raise ValueError("Port 80 is not open for this device. Run a scan first.")
+            return api_response({"results": find_project_folders(target_ip)})
+        except Exception as exc:
+            write_error_log("api-project-discovery", str(exc), route=request.path, method=request.method, exc=exc)
+            return api_error(str(exc), 400, "project_discovery_failed")
+
+    @app.post("/api/v1/projects/tree")
+    @api_login_required
+    def api_project_tree() -> object:
+        payload = request_payload()
+        start_url = str(payload.get("url", "")).strip()
+        events: list[dict[str, object]] = []
+        folders: list[dict[str, object]] = []
+        meta: dict[str, object] = {}
+        try:
+            for event in iter_nested_project_folder_probes(start_url):
+                events.append(event)
+                if event.get("event") == "meta":
+                    meta = event
+                if event.get("event") == "folder":
+                    folder = event.get("folder")
+                    if isinstance(folder, dict):
+                        folders.append(folder)
+        except Exception as exc:
+            write_error_log("api-project-tree", str(exc), route=request.path, method=request.method, exc=exc)
+            return api_error(str(exc), 400, "project_tree_failed")
+
+        return api_response({"meta": meta, "folders": folders, "events": events})
 
     @app.route("/login", methods=["GET", "POST"])
     def login() -> object:
@@ -179,7 +425,7 @@ def create_app() -> Flask:
 
         try:
             devices = discover_devices(str(subnet))
-        except PermissionError:
+        except PermissionError as exc:
             write_error_log("scan", str(exc), route=request.path, method=request.method, exc=exc)
             flash("ARP scan needs permission. Run Gunicorn with the required network privileges.", "error")
             return redirect(url_for("dashboard"))

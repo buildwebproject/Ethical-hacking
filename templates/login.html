@@ -91,9 +91,52 @@
         mix-blend-mode: screen;
       }
 
+      .matrix-input-wrap {
+        background: rgba(7, 17, 6, 0.82);
+        border: 1px solid rgba(0, 230, 57, 0.45);
+        transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+      }
+
+      .matrix-input-wrap:focus-within {
+        background: rgba(7, 17, 6, 0.96);
+        border-color: #00ff41;
+        box-shadow: 0 0 16px rgba(0, 230, 57, 0.32), inset 0 0 12px rgba(0, 230, 57, 0.08);
+      }
+
+      .matrix-input {
+        appearance: none;
+        -webkit-appearance: none;
+        background: transparent !important;
+        border: 0 !important;
+        color: #72ff70 !important;
+        caret-color: #00ff41;
+        font-family: 'JetBrains Mono', monospace;
+        outline: none;
+        box-shadow: none !important;
+      }
+
+      .matrix-input::placeholder {
+        color: rgba(0, 230, 57, 0.28);
+        opacity: 1;
+      }
+
+      .matrix-input:-webkit-autofill,
+      .matrix-input:-webkit-autofill:hover,
+      .matrix-input:-webkit-autofill:focus,
+      .matrix-input:-webkit-autofill:active {
+        -webkit-text-fill-color: #72ff70 !important;
+        caret-color: #00ff41;
+        box-shadow: 0 0 0 1000px #071106 inset !important;
+        transition: background-color 9999s ease-in-out 0s;
+      }
+
+      .matrix-input:-moz-autofill {
+        box-shadow: 0 0 0 1000px #071106 inset !important;
+        color: #72ff70 !important;
+      }
+
       input:focus {
         outline: none;
-        box-shadow: 0 0 15px rgba(0, 230, 57, 0.3);
       }
 
       .scanline {
@@ -126,6 +169,94 @@
         animation: loaderPulse 1s ease-in-out infinite;
       }
 
+      .terminal-cursor::after {
+        content: '_';
+        animation: blink 1s step-start infinite;
+      }
+
+      @keyframes blink {
+        50% { opacity: 0; }
+      }
+
+      .page-skeleton {
+        position: fixed;
+        inset: 0;
+        z-index: 140;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(0, 59, 0, 0.16) 0%, transparent 72%),
+          linear-gradient(rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          #071106;
+        background-size: auto, 28px 28px, 28px 28px;
+        color: #00e639;
+        font-family: 'JetBrains Mono', monospace;
+        opacity: 1;
+        transition: opacity 220ms ease, visibility 220ms ease;
+      }
+
+      .page-skeleton.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+      }
+
+      .page-skeleton-panel {
+        width: min(520px, 100%);
+        border: 1px solid rgba(0, 230, 57, 0.55);
+        background: rgba(7, 17, 6, 0.94);
+        box-shadow: 0 0 28px rgba(0, 230, 57, 0.24), inset 0 0 18px rgba(0, 230, 57, 0.08);
+      }
+
+      .page-skeleton-head {
+        border-bottom: 1px solid rgba(0, 230, 57, 0.28);
+        padding: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .page-skeleton-body {
+        display: grid;
+        gap: 14px;
+        padding: 18px;
+      }
+
+      .skeleton-line,
+      .skeleton-input,
+      .skeleton-button {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0, 230, 57, 0.2);
+        background: rgba(0, 230, 57, 0.07);
+      }
+
+      .skeleton-line::after,
+      .skeleton-input::after,
+      .skeleton-button::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 230, 57, 0.28), transparent);
+        animation: skeletonSweep 1.35s ease-in-out infinite;
+      }
+
+      .skeleton-line {
+        height: 14px;
+      }
+
+      .skeleton-input {
+        height: 54px;
+      }
+
+      .skeleton-button {
+        height: 56px;
+      }
+
       .matrix-alert {
         opacity: 0;
         pointer-events: none;
@@ -141,6 +272,11 @@
         0% { transform: translateX(-100%); }
         100% { transform: translateX(260%); }
       }
+
+      @keyframes skeletonSweep {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
     </style>
   </head>
   <body class="bg-background text-on-background font-body-md overflow-hidden min-h-screen selection:bg-primary-container selection:text-on-primary-container">
@@ -148,6 +284,19 @@
     <canvas id="matrix-rain" class="matrix-rain-canvas" aria-hidden="true"></canvas>
     <div class="fixed inset-0 z-10 digital-rain-overlay pointer-events-none"></div>
     <div class="scanline"></div>
+    <div id="page-skeleton" class="page-skeleton" role="status" aria-live="polite" aria-label="Loading authentication interface">
+      <div class="page-skeleton-panel">
+        <div class="page-skeleton-head">&gt; Identity_UI_Bootstrap<span class="terminal-cursor"></span></div>
+        <div class="page-skeleton-body" aria-hidden="true">
+          <div class="skeleton-line" style="width: 72%;"></div>
+          <div class="skeleton-line" style="width: 48%;"></div>
+          <div class="skeleton-input"></div>
+          <div class="skeleton-input"></div>
+          <div class="skeleton-button"></div>
+          <div class="skeleton-line" style="width: 58%;"></div>
+        </div>
+      </div>
+    </div>
     <div id="matrix-alert" class="matrix-alert fixed inset-0 z-[130] bg-black/90 backdrop-blur-sm flex items-center justify-center p-unit-4">
       <div class="glass-panel w-[min(620px,calc(100vw-32px))] p-unit-8 rounded-none border-error">
         <div class="flex items-center justify-between border-b border-error/40 pb-unit-4">
@@ -181,6 +330,11 @@
           <div id="ajax-loader-message" class="font-code-md text-primary-fixed-dim uppercase tracking-widest">&gt; Verifying operator key_</div>
           <div class="h-2 overflow-hidden border border-primary-fixed-dim/40 bg-primary-fixed-dim/5">
             <div class="loader-bar h-full w-1/2 bg-primary-fixed-dim shadow-[0_0_18px_#00FF41]"></div>
+          </div>
+          <div class="grid gap-unit-2" aria-hidden="true">
+            <div class="skeleton-line" style="width: 88%;"></div>
+            <div class="skeleton-line" style="width: 64%;"></div>
+            <div class="skeleton-input"></div>
           </div>
           <div class="grid grid-cols-2 gap-unit-2 font-label-sm text-[10px] uppercase tracking-widest text-primary-fixed-dim/60">
             <div class="border border-primary-fixed-dim/20 p-unit-2">Elapsed: <span id="ajax-elapsed">00s</span></div>
@@ -229,9 +383,9 @@
             <label class="block font-label-sm text-primary-fixed-dim/80 uppercase tracking-widest pl-unit-1" for="username">
               OPERATOR_ID
             </label>
-            <div class="relative">
-              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50 material-symbols-outlined">alternate_email</span>
-              <input class="w-full bg-surface-container-lowest/50 border border-outline-variant py-unit-4 pl-unit-12 pr-unit-4 font-code-md text-primary-fixed placeholder:text-primary-fixed-dim/20 transition-all focus:border-primary-container" id="username" name="username" placeholder="admin" type="text" autocomplete="username" required autofocus>
+            <div class="matrix-input-wrap relative">
+              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/70 material-symbols-outlined pointer-events-none">alternate_email</span>
+              <input class="matrix-input w-full py-unit-4 pl-unit-12 pr-unit-4 font-code-md" id="username" name="username" placeholder="admin" type="text" autocomplete="username" required autofocus>
             </div>
           </div>
 
@@ -239,9 +393,9 @@
             <label class="block font-label-sm text-primary-fixed-dim/80 uppercase tracking-widest pl-unit-1" for="password">
               ACCESS_KEY
             </label>
-            <div class="relative">
-              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50 material-symbols-outlined">key</span>
-              <input class="w-full bg-surface-container-lowest/50 border border-outline-variant py-unit-4 pl-unit-12 pr-unit-4 font-code-md text-primary-fixed placeholder:text-primary-fixed-dim/20 transition-all focus:border-primary-container" id="password" name="password" placeholder="************" type="password" autocomplete="current-password" required>
+            <div class="matrix-input-wrap relative">
+              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/70 material-symbols-outlined pointer-events-none">key</span>
+              <input class="matrix-input w-full py-unit-4 pl-unit-12 pr-unit-4 font-code-md" id="password" name="password" placeholder="************" type="password" autocomplete="current-password" required>
               <div class="absolute right-unit-4 top-1/2 -translate-y-1/2 flex gap-unit-2">
                 <span class="w-2 h-4 bg-primary-fixed-dim/20 animate-pulse"></span>
               </div>
@@ -312,6 +466,23 @@
       <img alt="Glowing green circuit board" class="h-full w-full object-cover" src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80">
     </div>
     <script>
+      (() => {
+        const skeleton = document.getElementById("page-skeleton");
+        if (!skeleton) return;
+
+        const hideSkeleton = () => {
+          skeleton.classList.add("is-hidden");
+          window.setTimeout(() => skeleton.remove(), 280);
+        };
+
+        if (document.readyState === "complete") {
+          window.setTimeout(hideSkeleton, 180);
+        } else {
+          window.addEventListener("load", () => window.setTimeout(hideSkeleton, 180), { once: true });
+          window.setTimeout(hideSkeleton, 4200);
+        }
+      })();
+
       (() => {
         const canvas = document.getElementById("matrix-rain");
         if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

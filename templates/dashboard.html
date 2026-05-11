@@ -109,6 +109,105 @@
         animation: loaderPulse 1s ease-in-out infinite;
       }
 
+      .page-skeleton {
+        position: fixed;
+        inset: 0;
+        z-index: 140;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+          linear-gradient(rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          #000000;
+        background-size: 28px 28px;
+        color: #00ff41;
+        font-family: 'JetBrains Mono', monospace;
+        opacity: 1;
+        transition: opacity 220ms ease, visibility 220ms ease;
+      }
+
+      .page-skeleton.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+      }
+
+      .page-skeleton-panel {
+        width: min(860px, 100%);
+        border: 1px solid rgba(0, 255, 65, 0.48);
+        background: rgba(0, 0, 0, 0.92);
+        box-shadow: 0 0 34px rgba(0, 255, 65, 0.22), inset 0 0 24px rgba(0, 255, 65, 0.08);
+      }
+
+      .page-skeleton-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid rgba(0, 255, 65, 0.28);
+        padding: 16px;
+        text-transform: uppercase;
+        letter-spacing: 0.24em;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .page-skeleton-body {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 16px;
+        padding: 16px;
+      }
+
+      .skeleton-stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .skeleton-line,
+      .skeleton-tile,
+      .skeleton-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(0, 255, 65, 0.18);
+        background: rgba(0, 255, 65, 0.06);
+      }
+
+      .skeleton-line::after,
+      .skeleton-tile::after,
+      .skeleton-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.28), transparent);
+        animation: skeletonSweep 1.35s ease-in-out infinite;
+      }
+
+      .skeleton-line {
+        height: 16px;
+      }
+
+      .skeleton-tile {
+        height: 68px;
+      }
+
+      .skeleton-card {
+        min-height: 172px;
+      }
+
+      .skeleton-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      @keyframes skeletonSweep {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
       .matrix-alert {
         opacity: 0;
         pointer-events: none;
@@ -207,6 +306,108 @@
         text-shadow: 0 0 10px rgba(0, 255, 65, 0.65);
       }
 
+      .wired-topology {
+        background:
+          radial-gradient(circle at 50% 50%, rgba(0, 255, 65, 0.12), transparent 34%),
+          linear-gradient(rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.04) 1px, transparent 1px),
+          #000000;
+        background-size: auto, 28px 28px, 28px 28px;
+      }
+
+      .wired-cables {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        filter: drop-shadow(0 0 6px rgba(0, 255, 65, 0.4));
+      }
+
+      .wired-cable-shadow {
+        fill: none;
+        stroke: rgba(0, 80, 25, 0.85);
+        stroke-width: 10;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .wired-cable-core {
+        fill: none;
+        stroke: rgba(0, 255, 65, 0.82);
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 10 8;
+        animation: cablePacket 1.8s linear infinite;
+      }
+
+      .wired-cable-glow {
+        fill: none;
+        stroke: rgba(0, 255, 65, 0.22);
+        stroke-width: 16;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .gateway-node {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 118px;
+        transform: translate(-50%, -50%);
+        z-index: 3;
+      }
+
+      .gateway-box,
+      .wired-node {
+        border: 1px solid rgba(0, 255, 65, 0.62);
+        background: rgba(0, 9, 0, 0.96);
+        box-shadow:
+          0 0 24px rgba(0, 255, 65, 0.22),
+          inset 0 0 18px rgba(0, 255, 65, 0.08);
+      }
+
+      .gateway-box {
+        height: 94px;
+        display: grid;
+        place-items: center;
+      }
+
+      .wired-node {
+        position: absolute;
+        width: 138px;
+        min-height: 74px;
+        z-index: 2;
+        padding: 10px;
+        transform: translate(-50%, -50%);
+      }
+
+      .wire-jack {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 1;
+        width: 14px;
+        height: 14px;
+        transform: translate(-50%, -50%);
+        border: 2px solid #00ff41;
+        background: #001100;
+        box-shadow: 0 0 16px rgba(0, 255, 65, 0.8);
+      }
+
+      .wire-jack::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        background: #00ff41;
+        animation: blink 1s step-start infinite;
+      }
+
+      @keyframes cablePacket {
+        to { stroke-dashoffset: -36; }
+      }
+
       .project-tree-modal {
         align-items: center;
         justify-content: center;
@@ -251,6 +452,28 @@
       }
 
       @media (max-width: 767px) {
+        .page-skeleton-body {
+          grid-template-columns: 1fr;
+        }
+
+        .skeleton-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .wired-node {
+          width: 112px;
+          min-height: 66px;
+          padding: 8px;
+        }
+
+        .gateway-node {
+          width: 96px;
+        }
+
+        .gateway-box {
+          height: 78px;
+        }
+
         .project-modal-panel {
           width: calc(100vw - 24px);
           height: calc(100vh - 32px);
@@ -311,6 +534,33 @@
     <canvas id="matrix-rain" class="matrix-rain-canvas" aria-hidden="true"></canvas>
     <div class="crt-overlay"></div>
     <div class="scanline-anim"></div>
+    <div id="page-skeleton" class="page-skeleton" role="status" aria-live="polite" aria-label="Loading interface">
+      <div class="page-skeleton-panel loader-grid">
+        <div class="page-skeleton-head">
+          <span class="terminal-cursor">&gt; Interface_Bootstrap</span>
+          <span>CSS/Data_Check</span>
+        </div>
+        <div class="page-skeleton-body">
+          <div class="skeleton-stack" aria-hidden="true">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line" style="width: 78%;"></div>
+            <div class="skeleton-line" style="width: 62%;"></div>
+            <div class="skeleton-tile"></div>
+            <div class="skeleton-tile"></div>
+          </div>
+          <div class="skeleton-stack" aria-hidden="true">
+            <div class="skeleton-grid">
+              <div class="skeleton-tile"></div>
+              <div class="skeleton-tile"></div>
+              <div class="skeleton-tile"></div>
+            </div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-line" style="width: 92%;"></div>
+            <div class="skeleton-line" style="width: 70%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="matrix-alert" class="matrix-alert fixed inset-0 z-[130] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="matrix-glow loader-grid w-[min(620px,calc(100vw-32px))] bg-black border-error/60 p-6">
         <div class="flex items-center justify-between border-b border-error/40 pb-3">
@@ -344,6 +594,15 @@
           <div id="ajax-loader-message" class="text-sm uppercase tracking-widest terminal-cursor">&gt; Initializing secure local request</div>
           <div class="h-2 overflow-hidden border border-primary/40 bg-primary/5">
             <div class="loader-bar h-full w-1/2 bg-primary shadow-[0_0_18px_#00FF41]"></div>
+          </div>
+          <div class="grid gap-2" aria-hidden="true">
+            <div class="skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton-line" style="width: 72%;"></div>
+            <div class="skeleton-grid">
+              <div class="skeleton-tile"></div>
+              <div class="skeleton-tile"></div>
+              <div class="skeleton-tile"></div>
+            </div>
           </div>
           <div class="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-widest text-primary/60">
             <div class="border border-primary/20 p-2">Elapsed: <span id="ajax-elapsed">00s</span></div>
@@ -621,28 +880,80 @@
       </section>
 
       <section class="grid grid-cols-12 gap-6">
-        <div id="topology" class="col-span-12 lg:col-span-7 h-[420px] matrix-glow relative flex items-center justify-center overflow-hidden bg-black">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle, #00FF41 1px, transparent 1px); background-size: 20px 20px;"></div>
+        <div id="topology" class="wired-topology col-span-12 lg:col-span-7 h-[420px] matrix-glow relative overflow-hidden">
           <div class="absolute top-6 left-6 flex items-center gap-2">
             <div class="w-2 h-2 bg-primary animate-pulse shadow-[0_0_8px_#00FF41]"></div>
-            <span class="text-[10px] uppercase tracking-[0.3em] font-bold">Live_Topology_View</span>
+            <span class="text-[10px] uppercase tracking-[0.3em] font-bold">Live_Wired_Topology</span>
           </div>
-          <div class="relative z-10 flex flex-col items-center">
-            <div class="w-20 h-20 border border-primary flex items-center justify-center shadow-[0_0_25px_rgba(0,255,65,0.3)] bg-black">
-              <span class="material-symbols-outlined text-4xl">router</span>
-            </div>
-            <span class="text-[10px] mt-2 uppercase tracking-widest font-bold">Local_Gateway</span>
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] border border-primary/10 rounded-full"></div>
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] border border-primary/5 rounded-full"></div>
-            {% for device in devices[:4] %}
-              {% set positions = ['-top-32 left-32', 'top-32 -left-32', '-bottom-16 left-48', '-bottom-16 -left-48'] %}
-              <div class="absolute {{ positions[loop.index0] }} flex flex-col items-center group">
-                <div class="w-12 h-12 border border-primary/40 bg-black flex items-center justify-center group-hover:border-primary transition-all">
-                  <span class="material-symbols-outlined text-lg">devices</span>
-                </div>
-                <span class="text-[8px] mt-1 opacity-60">{{ device.ip }}</span>
-              </div>
+
+          {% set cable_paths = [
+            'M 500 210 L 500 86 L 742 86',
+            'M 500 210 L 782 210',
+            'M 500 210 L 500 334 L 742 334',
+            'M 500 210 L 500 334 L 258 334',
+            'M 500 210 L 218 210',
+            'M 500 210 L 500 86 L 258 86'
+          ] %}
+          {% set node_slots = [
+            {'style': 'left: 74.2%; top: 86px;', 'jack': 'left: 74.2%; top: 86px;'},
+            {'style': 'left: 78.2%; top: 210px;', 'jack': 'left: 78.2%; top: 210px;'},
+            {'style': 'left: 74.2%; top: 334px;', 'jack': 'left: 74.2%; top: 334px;'},
+            {'style': 'left: 25.8%; top: 334px;', 'jack': 'left: 25.8%; top: 334px;'},
+            {'style': 'left: 21.8%; top: 210px;', 'jack': 'left: 21.8%; top: 210px;'},
+            {'style': 'left: 25.8%; top: 86px;', 'jack': 'left: 25.8%; top: 86px;'}
+          ] %}
+
+          <svg class="wired-cables" viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true">
+            {% for device in devices[:6] %}
+              <path class="wired-cable-glow" d="{{ cable_paths[loop.index0] }}"></path>
+              <path class="wired-cable-shadow" d="{{ cable_paths[loop.index0] }}"></path>
+              <path class="wired-cable-core" d="{{ cable_paths[loop.index0] }}"></path>
             {% endfor %}
+          </svg>
+
+          <div class="gateway-node text-center">
+            <div class="gateway-box">
+              <div>
+                <span class="material-symbols-outlined text-4xl">router</span>
+                <div class="mt-2 flex justify-center gap-1" aria-hidden="true">
+                  <span class="h-1.5 w-1.5 bg-primary shadow-[0_0_6px_#00FF41]"></span>
+                  <span class="h-1.5 w-1.5 bg-primary/60"></span>
+                  <span class="h-1.5 w-1.5 bg-primary shadow-[0_0_6px_#00FF41] animate-pulse"></span>
+                </div>
+              </div>
+            </div>
+            <span class="mt-2 block text-[10px] uppercase tracking-widest font-bold">Local_Gateway</span>
+            <span class="block text-[8px] text-primary/50">{{ conn.gateway or conn.local_ip or '192.168.x.1' }}</span>
+          </div>
+
+          {% for device in devices[:6] %}
+            {% set slot = node_slots[loop.index0] %}
+            <span class="wire-jack" style="{{ slot.jack }}" aria-hidden="true"></span>
+            <div class="wired-node group" style="{{ slot.style }}">
+              <div class="flex items-center justify-between gap-2">
+                <span class="material-symbols-outlined text-xl text-primary/80 group-hover:text-primary">desktop_windows</span>
+                <span class="text-[8px] uppercase tracking-widest text-primary/50">RJ45_Link</span>
+              </div>
+              <div class="mt-2 text-[11px] font-bold text-primary truncate">{{ device.ip }}</div>
+              <div class="mt-1 text-[8px] text-primary/50 truncate">{{ device.hostname if device.hostname != 'Unknown' else device.vendor }}</div>
+              <div class="mt-2 flex items-center gap-1 text-[8px] uppercase tracking-widest text-primary/60">
+                <span class="h-1.5 w-1.5 bg-primary shadow-[0_0_6px_#00FF41]"></span>
+                Link_Up
+              </div>
+            </div>
+          {% else %}
+            <div class="absolute inset-x-8 bottom-8 border border-primary/20 bg-primary/5 p-4 text-center text-xs uppercase tracking-widest text-primary/60">
+              No wired endpoints mapped yet. Run a safe scan.
+            </div>
+          {% endfor %}
+
+          {% if devices|length > 6 %}
+            <div class="absolute right-6 bottom-6 border border-primary/30 bg-black/80 px-3 py-2 text-[9px] uppercase tracking-widest text-primary/70">
+              +{{ devices|length - 6 }} more nodes in manifest
+            </div>
+          {% endif %}
+          <div class="absolute left-6 bottom-6 border border-primary/20 bg-black/70 px-3 py-2 text-[9px] uppercase tracking-widest text-primary/50">
+            Routed_Copper_Links :: ARP_Discovered
           </div>
         </div>
 
@@ -861,6 +1172,23 @@
       </svg>
     </div>
     <script>
+      (() => {
+        const skeleton = document.getElementById("page-skeleton");
+        if (!skeleton) return;
+
+        const hideSkeleton = () => {
+          skeleton.classList.add("is-hidden");
+          window.setTimeout(() => skeleton.remove(), 280);
+        };
+
+        if (document.readyState === "complete") {
+          window.setTimeout(hideSkeleton, 180);
+        } else {
+          window.addEventListener("load", () => window.setTimeout(hideSkeleton, 180), { once: true });
+          window.setTimeout(hideSkeleton, 4200);
+        }
+      })();
+
       (() => {
         const canvas = document.getElementById("matrix-rain");
         if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
