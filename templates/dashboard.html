@@ -1,0 +1,1626 @@
+<!doctype html>
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>NET_SCANNER | Matrix Protocol</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #000000;
+        background-image:
+          linear-gradient(rgba(0, 255, 65, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.05) 1px, transparent 1px);
+        background-size: 30px 30px;
+        color: #00ff41;
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      .crt-overlay {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+        z-index: 100;
+        background-size: 100% 4px, 3px 100%;
+        pointer-events: none;
+        opacity: 0.3;
+      }
+
+      .matrix-rain-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.18;
+        mix-blend-mode: screen;
+      }
+
+      .scanline-anim {
+        width: 100%;
+        height: 100px;
+        z-index: 99;
+        background: linear-gradient(0deg, rgba(0, 255, 65, 0) 0%, rgba(0, 255, 65, 0.2) 50%, rgba(0, 255, 65, 0) 100%);
+        opacity: 0.1;
+        position: fixed;
+        bottom: 100%;
+        pointer-events: none;
+        animation: scanline 8s linear infinite;
+      }
+
+      @keyframes scanline {
+        0% { bottom: 100%; }
+        100% { bottom: -100px; }
+      }
+
+      .matrix-glow {
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.15);
+        border: 1px solid rgba(0, 255, 65, 0.3);
+      }
+
+      .matrix-glow:hover {
+        box-shadow: 0 0 25px rgba(0, 255, 65, 0.35);
+        border-color: rgba(0, 255, 65, 0.75);
+      }
+
+      .terminal-cursor::after {
+        content: '_';
+        animation: blink 1s step-start infinite;
+      }
+
+      @keyframes blink {
+        50% { opacity: 0; }
+      }
+
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        vertical-align: middle;
+      }
+
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #000000; }
+      ::-webkit-scrollbar-thumb { background: #003b00; border: 1px solid #00ff41; }
+
+      .ajax-loader {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+
+      .ajax-loader.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .loader-grid {
+        background-image:
+          linear-gradient(rgba(0, 255, 65, 0.12) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 65, 0.12) 1px, transparent 1px);
+        background-size: 18px 18px;
+      }
+
+      .loader-bar {
+        animation: loaderPulse 1s ease-in-out infinite;
+      }
+
+      .matrix-alert {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+
+      .matrix-alert.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .project-modal-shell {
+        align-items: center;
+        justify-content: center;
+      }
+
+      .project-modal-panel {
+        width: min(84rem, calc(100vw - 48px));
+        height: min(50rem, calc(100vh - 64px));
+        max-height: calc(100vh - 64px);
+        position: relative;
+        box-shadow:
+          0 0 0 1px rgba(0, 255, 65, 0.45),
+          0 0 36px rgba(0, 255, 65, 0.22),
+          inset 0 0 28px rgba(0, 255, 65, 0.08);
+      }
+
+      .project-scroll {
+        scrollbar-color: #00ff41 #001100;
+        scrollbar-width: thin;
+      }
+
+      .project-scroll::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      .project-scroll::-webkit-scrollbar-track {
+        background: rgba(0, 34, 0, 0.9);
+        border-left: 1px solid rgba(0, 255, 65, 0.16);
+      }
+
+      .project-scroll::-webkit-scrollbar-thumb {
+        background: #00ff41;
+        border: 2px solid #001100;
+        box-shadow: 0 0 12px rgba(0, 255, 65, 0.65);
+      }
+
+      .project-log-row {
+        border-left: 2px solid transparent;
+        padding: 2px 6px;
+        transition: background 120ms ease, border-color 120ms ease, color 120ms ease, text-shadow 120ms ease;
+      }
+
+      .project-log-row:hover {
+        background: rgba(0, 255, 65, 0.12);
+        border-color: #00ff41;
+        color: #00ff41;
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.8);
+      }
+
+      .project-card {
+        position: relative;
+        overflow: hidden;
+        transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
+      }
+
+      .project-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 65, 0.22), transparent);
+        transform: translateX(-120%);
+        transition: transform 260ms ease;
+        pointer-events: none;
+      }
+
+      .project-card:hover {
+        transform: translateY(-2px);
+        border-color: #00ff41;
+        background: rgba(0, 255, 65, 0.16);
+        box-shadow: 0 0 22px rgba(0, 255, 65, 0.32), inset 0 0 18px rgba(0, 255, 65, 0.08);
+      }
+
+      .project-card:hover::before {
+        transform: translateX(120%);
+      }
+
+      .project-empty {
+        transition: border-color 140ms ease, background 140ms ease, text-shadow 140ms ease;
+      }
+
+      .project-empty:hover {
+        border-color: rgba(0, 255, 65, 0.75);
+        background: rgba(0, 255, 65, 0.1);
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.65);
+      }
+
+      .project-tree-modal {
+        align-items: center;
+        justify-content: center;
+      }
+
+      .project-tree-panel {
+        width: min(64rem, calc(100vw - 72px));
+        height: min(40rem, calc(100vh - 96px));
+        max-height: calc(100vh - 96px);
+        box-shadow:
+          0 0 0 1px rgba(0, 255, 65, 0.7),
+          0 0 48px rgba(0, 255, 65, 0.32),
+          inset 0 0 34px rgba(0, 255, 65, 0.1);
+      }
+
+      .project-tree-row {
+        animation: treeRowBoot 180ms ease-out both;
+      }
+
+      .project-tree-row[data-found="true"] {
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+      }
+
+      .project-tree-row:hover {
+        background: rgba(0, 255, 65, 0.1);
+      }
+
+      @keyframes treeRowBoot {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes loaderPulse {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(260%); }
+      }
+
+      @media (max-width: 767px) {
+        .project-modal-panel {
+          width: calc(100vw - 24px);
+          height: calc(100vh - 32px);
+          max-height: calc(100vh - 32px);
+        }
+
+        .project-tree-panel {
+          width: calc(100vw - 24px);
+          height: calc(100vh - 48px);
+          max-height: calc(100vh - 48px);
+        }
+      }
+
+      @media (max-width: 1023px) {
+        .sidebar { position: static; width: 100%; height: auto; }
+        .top-nav, .main-content { margin-left: 0; }
+        .top-nav { position: static; height: auto; padding: 16px; flex-wrap: wrap; }
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#00FF41",
+              "on-primary": "#003907",
+              "primary-container": "#00ff41",
+              secondary: "#008F11",
+              "secondary-container": "#003B00",
+              background: "#000000",
+              surface: "#000000",
+              "surface-container": "#001100",
+              "surface-container-high": "#002200",
+              outline: "#00FF41",
+              "outline-variant": "#003B00",
+              "on-background": "#00FF41",
+              "on-surface": "#00FF41",
+              error: "#FF4D4D"
+            },
+            fontFamily: {
+              "body-md": ["JetBrains Mono", "monospace"],
+              "headline-md": ["JetBrains Mono", "monospace"],
+              "display-lg": ["JetBrains Mono", "monospace"]
+            }
+          }
+        }
+      };
+    </script>
+  </head>
+  <body class="bg-black text-primary font-body-md overflow-x-hidden selection:bg-primary selection:text-black">
+    {% set total_ports = namespace(count=0) %}
+    {% for device in devices %}
+      {% set total_ports.count = total_ports.count + device.open_ports|length %}
+    {% endfor %}
+    {% set conn = connection_details or {} %}
+
+    <canvas id="matrix-rain" class="matrix-rain-canvas" aria-hidden="true"></canvas>
+    <div class="crt-overlay"></div>
+    <div class="scanline-anim"></div>
+    <div id="matrix-alert" class="matrix-alert fixed inset-0 z-[130] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="matrix-glow loader-grid w-[min(620px,calc(100vw-32px))] bg-black border-error/60 p-6">
+        <div class="flex items-center justify-between border-b border-error/40 pb-3">
+          <div class="flex items-center gap-3 text-error">
+            <span class="material-symbols-outlined animate-pulse">warning</span>
+            <span class="text-xs font-bold uppercase tracking-[0.25em]">Ajax_Request_Failed</span>
+          </div>
+          <button id="matrix-alert-close" class="border border-error/50 px-3 py-1 text-[10px] uppercase tracking-widest text-error hover:bg-error hover:text-black" type="button">Close</button>
+        </div>
+        <div class="py-5 space-y-3 text-xs">
+          <div class="text-error terminal-cursor">&gt; Failure packet captured</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-primary/70">
+            <div class="border border-primary/20 p-3">Action: <span id="matrix-alert-action" class="text-primary break-all">-</span></div>
+            <div class="border border-primary/20 p-3">Method: <span id="matrix-alert-method" class="text-primary">-</span></div>
+            <div class="border border-primary/20 p-3">Elapsed: <span id="matrix-alert-elapsed" class="text-primary">-</span></div>
+            <div class="border border-primary/20 p-3">Saved: <span class="text-primary">Error_Log_Buffer</span></div>
+          </div>
+          <div class="border border-error/40 bg-red-950/20 p-3 text-error">
+            Error: <span id="matrix-alert-error">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="ajax-loader" class="ajax-loader fixed inset-0 z-[120] bg-black/90 backdrop-blur-sm flex items-center justify-center">
+      <div class="matrix-glow loader-grid w-[min(520px,calc(100vw-32px))] bg-black p-6">
+        <div class="flex items-center gap-3 border-b border-primary/30 pb-3">
+          <span class="material-symbols-outlined animate-pulse">terminal</span>
+          <span class="text-xs font-bold uppercase tracking-[0.25em]">Request_Processing</span>
+        </div>
+        <div class="py-6 space-y-4">
+          <div id="ajax-loader-message" class="text-sm uppercase tracking-widest terminal-cursor">&gt; Initializing secure local request</div>
+          <div class="h-2 overflow-hidden border border-primary/40 bg-primary/5">
+            <div class="loader-bar h-full w-1/2 bg-primary shadow-[0_0_18px_#00FF41]"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-widest text-primary/60">
+            <div class="border border-primary/20 p-2">Elapsed: <span id="ajax-elapsed">00s</span></div>
+            <div class="border border-primary/20 p-2">Estimate: <span id="ajax-estimate">Calculating</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="project-modal" class="matrix-alert project-modal-shell fixed inset-0 z-[125] bg-black/95 backdrop-blur-sm p-3 sm:p-5 flex">
+      <div class="matrix-glow loader-grid project-modal-panel bg-black border-primary/50 flex flex-col overflow-hidden">
+        <div class="border-b border-primary/30 bg-primary/10 px-4 py-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="material-symbols-outlined animate-pulse">folder_search</span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-[0.25em] truncate">Project_Discovery_Modal</div>
+              <div id="project-modal-target" class="text-[10px] text-primary/60 uppercase tracking-widest truncate">Target: -</div>
+            </div>
+          </div>
+          <button id="project-modal-close" class="border border-primary/50 px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black" type="button">Close</button>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-0 min-h-0 flex-1">
+          <div class="border-b xl:border-b-0 xl:border-r border-primary/30 flex flex-col min-h-[260px] xl:min-h-0">
+            <div class="p-4 border-b border-primary/20">
+              <label class="block text-[9px] uppercase tracking-widest text-primary/60 mb-2" for="project-word-search">Word_Search</label>
+              <input id="project-word-search" class="w-full bg-black border border-primary/40 text-primary text-xs focus:ring-primary focus:border-primary placeholder:text-primary/30" type="search" placeholder="project, api, dashboard">
+            </div>
+            <div id="project-live-log" class="project-scroll flex-1 overflow-y-auto p-4 space-y-1 text-[11px] font-mono"></div>
+          </div>
+          <div class="min-h-0 flex flex-col">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 border-b border-primary/20 text-[10px] uppercase tracking-widest">
+              <div class="border border-primary/20 bg-primary/5 p-3">Base_URL: <span id="project-base-url" class="text-primary break-all">-</span></div>
+              <div class="border border-primary/20 bg-primary/5 p-3">Root_Status: <span id="project-root-status" class="text-primary">-</span></div>
+              <div class="border border-primary/20 bg-primary/5 p-3">Matched: <span id="project-match-count" class="text-primary">00</span></div>
+            </div>
+            <div id="project-results-grid" class="project-scroll flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3 content-start"></div>
+          </div>
+        </div>
+        <div id="project-complete-popup" class="matrix-alert absolute inset-0 z-[2] bg-black/75 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div class="matrix-glow loader-grid w-[min(520px,calc(100vw-32px))] bg-black border-primary/70 p-6 shadow-[0_0_40px_rgba(0,255,65,0.35)]">
+            <div class="flex items-center justify-between border-b border-primary/30 pb-3">
+              <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-3xl animate-pulse">task_alt</span>
+                <div>
+                  <div class="text-sm font-bold uppercase tracking-[0.3em]">Operation_Complete</div>
+                  <div id="project-complete-target" class="text-[10px] text-primary/60 uppercase tracking-widest mt-1">Target: -</div>
+                </div>
+              </div>
+              <button id="project-complete-close" class="border border-primary/50 px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black" type="button">OK</button>
+            </div>
+            <div class="py-5 space-y-3 text-xs uppercase tracking-widest">
+              <div class="terminal-cursor">&gt; Search sequence finished</div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="border border-primary/20 bg-primary/5 p-3">Visible: <span id="project-complete-count">00</span></div>
+                <div class="border border-primary/20 bg-primary/5 p-3">Status: <span>Complete</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="project-tree-modal" class="matrix-alert project-tree-modal fixed inset-0 z-[128] bg-black/80 backdrop-blur-[3px] p-3 sm:p-5 flex">
+      <div class="matrix-glow loader-grid project-tree-panel bg-black border-primary/70 flex flex-col overflow-hidden">
+        <div class="border-b border-primary/30 bg-primary/10 px-4 py-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="material-symbols-outlined animate-pulse">account_tree</span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold uppercase tracking-[0.25em] truncate">Subfolder_Trace_Modal</div>
+              <div id="project-tree-target" class="text-[10px] text-primary/60 uppercase tracking-widest truncate">Target: -</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <a id="project-tree-open-link" class="border border-primary/40 px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black" href="#" target="_blank" rel="noopener noreferrer">Open</a>
+            <button id="project-tree-close" class="border border-primary/50 px-3 py-1 text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black" type="button">Close</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] min-h-0 flex-1">
+          <div class="border-b lg:border-b-0 lg:border-r border-primary/30 p-4 space-y-3 text-[10px] uppercase tracking-widest">
+            <div class="border border-primary/20 bg-primary/5 p-3">Root_Status: <span id="project-tree-root-status" class="text-primary">Scanning</span></div>
+            <div class="border border-primary/20 bg-primary/5 p-3">Visible_Nodes: <span id="project-tree-count" class="text-primary">00</span></div>
+            <div class="border border-primary/20 bg-primary/5 p-3">Depth_Limit: <span id="project-tree-depth" class="text-primary">03</span></div>
+            <div id="project-tree-console" class="project-scroll h-52 lg:h-[calc(100%-156px)] overflow-y-auto border border-primary/20 bg-black/60 p-3 space-y-1 font-mono text-[10px] normal-case tracking-normal"></div>
+          </div>
+          <div id="project-tree-results" class="project-scroll min-h-0 overflow-y-auto p-4 space-y-2 text-xs font-mono"></div>
+        </div>
+      </div>
+    </div>
+    {% if project_results %}
+      <script id="initial-project-results" type="application/json">{{ project_results|tojson }}</script>
+    {% endif %}
+
+    <aside class="sidebar fixed left-0 top-0 h-full z-40 w-64 flex flex-col border-r border-primary/30 bg-black/90 backdrop-blur-md">
+      <div class="p-6 mb-8 border-b border-primary/20">
+        <h1 class="text-xl font-bold tracking-[0.2em] text-primary terminal-cursor">NET_SCANNER</h1>
+        <p class="text-[10px] text-primary/60 mt-1 uppercase">Access: Local_Operator</p>
+      </div>
+      <nav class="flex-1 px-2 space-y-1">
+        <a href="#dashboard" class="bg-primary/20 text-primary border-l-2 border-primary p-4 flex items-center gap-3 transition-all">
+          <span class="material-symbols-outlined text-lg">dashboard</span>
+          <span class="text-sm uppercase tracking-wider">Dashboard</span>
+        </a>
+        <a href="#devices" class="text-primary/60 hover:text-primary p-4 flex items-center gap-3 hover:bg-primary/5 transition-all">
+          <span class="material-symbols-outlined text-lg">router</span>
+          <span class="text-sm uppercase tracking-wider">Devices</span>
+        </a>
+        <a href="#topology" class="text-primary/60 hover:text-primary p-4 flex items-center gap-3 hover:bg-primary/5 transition-all">
+          <span class="material-symbols-outlined text-lg">account_tree</span>
+          <span class="text-sm uppercase tracking-wider">Topology</span>
+        </a>
+        <a href="#ports" class="text-primary/60 hover:text-primary p-4 flex items-center gap-3 hover:bg-primary/5 transition-all">
+          <span class="material-symbols-outlined text-lg">lan</span>
+          <span class="text-sm uppercase tracking-wider">Ports</span>
+        </a>
+        <a href="#activity" class="text-primary/60 hover:text-primary p-4 flex items-center gap-3 hover:bg-primary/5 transition-all">
+          <span class="material-symbols-outlined text-lg">terminal</span>
+          <span class="text-sm uppercase tracking-wider">Logs</span>
+        </a>
+      </nav>
+      <div class="p-6 border-t border-primary/20 space-y-4">
+        <form method="post" action="{{ url_for('scan') }}" data-ajax-form data-loading-message="Executing safe local network scan">
+          <input type="hidden" name="subnet" value="{{ current_subnet }}">
+          <input type="hidden" name="ports" value="common">
+          <button class="w-full py-3 bg-transparent border border-primary text-primary text-xs font-bold uppercase hover:bg-primary hover:text-black transition-all shadow-[0_0_10px_rgba(0,255,65,0.2)] active:scale-95" type="submit">
+            Execute Scan
+          </button>
+        </form>
+        <form method="post" action="{{ url_for('logout') }}" data-ajax-form data-loading-message="Closing operator session">
+          <button class="w-full py-2 border border-primary/40 text-primary/70 text-xs font-bold uppercase hover:bg-primary/10 hover:text-primary transition-all" type="submit">
+            Logout
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <header class="top-nav sticky top-0 right-0 lg:left-64 lg:w-[calc(100%-16rem)] flex justify-between items-center gap-4 px-4 xl:px-8 h-16 z-50 ml-64 bg-black/95 border-b border-primary/30 overflow-hidden">
+      <div class="flex items-center gap-4 xl:gap-8 min-w-0">
+        <div class="px-3 py-1 border border-primary/40 bg-primary/5 rounded text-[10px] tracking-[0.2em] uppercase truncate max-w-[280px]">
+          Subnet: {{ current_subnet or conn.subnet or 'Auto Detect' }}
+        </div>
+        <div class="hidden xl:flex items-center gap-6 border-l border-primary/20 pl-8">
+          <div class="flex flex-col">
+            <span class="text-[9px] text-primary/40 uppercase">Interface</span>
+            <span class="text-xs text-primary">{{ conn.interface or 'Unknown' }}</span>
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[9px] text-primary/40 uppercase">Local_IP</span>
+            <span class="text-xs text-primary">{{ conn.local_ip or 'Unknown' }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 xl:gap-4 shrink-0">
+        <form method="post" action="{{ url_for('scan') }}" data-ajax-form data-loading-message="Executing safe local network scan">
+          <input type="hidden" name="subnet" value="{{ current_subnet }}">
+          <input type="hidden" name="ports" value="common">
+          <button class="px-4 xl:px-6 h-9 bg-primary text-black text-xs font-bold tracking-widest hover:shadow-[0_0_15px_#00FF41] transition-all whitespace-nowrap" type="submit">SCAN_NOW</button>
+        </form>
+        <form method="post" action="{{ url_for('export') }}" data-ajax-form data-loading-message="Exporting reports">
+          <button class="px-4 xl:px-6 h-9 border border-primary text-primary text-xs font-bold tracking-widest hover:bg-primary/10 transition-all flex items-center whitespace-nowrap" type="submit">EXPORT_LOG</button>
+        </form>
+        <div class="hidden 2xl:flex items-center gap-4 border-l border-primary/20 pl-6">
+          <span class="material-symbols-outlined text-primary/60">security</span>
+          <div class="w-8 h-8 rounded border border-primary p-0.5 bg-black">
+            <div class="w-full h-full bg-primary/20 flex items-center justify-center">
+              <span class="material-symbols-outlined text-sm">person</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="dashboard" class="main-content ml-64 p-8 space-y-8">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <section class="space-y-2">
+            {% for category, message in messages %}
+              <div class="matrix-glow px-4 py-3 text-xs uppercase tracking-widest {% if category == 'error' %}text-error border-error/40 bg-red-950/20{% else %}text-primary bg-primary/5{% endif %}">
+                &gt; {{ message }}
+              </div>
+            {% endfor %}
+          </section>
+        {% endif %}
+      {% endwith %}
+
+      <section class="matrix-glow bg-black border border-primary/30 overflow-hidden">
+        <div class="bg-primary/10 px-4 py-2 border-b border-primary/30 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-sm">wifi</span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.25em]">Connected_Network_Profile</span>
+          </div>
+          <span class="text-[10px] uppercase tracking-widest text-primary/60">{{ conn.status or 'Unknown' }}</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-px bg-primary/20">
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">SSID</div>
+            <div class="mt-2 text-sm font-bold break-all">{{ conn.ssid or 'Unknown' }}</div>
+          </div>
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">Type</div>
+            <div class="mt-2 text-sm font-bold">{{ conn.connection_type or 'Unknown' }}</div>
+          </div>
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">Interface</div>
+            <div class="mt-2 text-sm font-bold">{{ conn.interface or 'Unknown' }}</div>
+          </div>
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">Local_IP</div>
+            <div class="mt-2 text-sm font-bold">{{ conn.local_ip or 'Unknown' }}</div>
+          </div>
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">Gateway</div>
+            <div class="mt-2 text-sm font-bold">{{ conn.gateway or 'Unknown' }}</div>
+          </div>
+          <div class="bg-black p-4">
+            <div class="text-[9px] uppercase tracking-widest text-primary/40">MAC</div>
+            <div class="mt-2 text-sm font-bold break-all">{{ conn.mac_address or 'Unknown' }}</div>
+          </div>
+        </div>
+        <div class="px-4 py-3 border-t border-primary/20 text-[10px] uppercase tracking-widest text-primary/60">
+          Network_Subnet: <span class="text-primary">{{ conn.subnet or 'Unknown' }}</span>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="matrix-glow bg-black p-6 flex flex-col gap-2 relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-full h-px bg-primary/50"></div>
+          <div class="flex items-center justify-between opacity-60">
+            <span class="material-symbols-outlined text-sm">lan</span>
+            <span class="text-[9px] uppercase tracking-tighter">Nodes_Total</span>
+          </div>
+          <div class="text-3xl font-bold">{{ devices|length }}</div>
+          <div class="text-[10px] opacity-60 uppercase">Connected Devices</div>
+        </div>
+        <div class="matrix-glow bg-black p-6 flex flex-col gap-2 relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-full h-px bg-primary/50"></div>
+          <div class="flex items-center justify-between opacity-60">
+            <span class="material-symbols-outlined text-sm">sensors</span>
+            <span class="text-[9px] uppercase tracking-tighter">Status_Live</span>
+          </div>
+          <div class="text-3xl font-bold">{{ devices|length }}</div>
+          <div class="text-[10px] opacity-60 uppercase">Online Devices</div>
+        </div>
+        <div class="matrix-glow bg-black p-6 flex flex-col gap-2 relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-full h-px bg-primary/50"></div>
+          <div class="flex items-center justify-between opacity-60">
+            <span class="material-symbols-outlined text-sm">vpn_key</span>
+            <span class="text-[9px] uppercase tracking-tighter">Port_Entries</span>
+          </div>
+          <div class="text-3xl font-bold">{{ total_ports.count }}</div>
+          <div class="text-[10px] opacity-60 uppercase">Open Services</div>
+        </div>
+        <div class="matrix-glow bg-black p-6 flex flex-col gap-2 relative overflow-hidden">
+          <div class="absolute top-0 left-0 w-full h-px bg-primary/50"></div>
+          <div class="flex items-center justify-between opacity-60">
+            <span class="material-symbols-outlined text-sm">verified_user</span>
+            <span class="text-[9px] uppercase tracking-tighter">Scope_Control</span>
+          </div>
+          <div class="text-3xl font-bold">LAN</div>
+          <div class="text-[10px] opacity-60 uppercase">Public IPs Blocked</div>
+        </div>
+      </section>
+
+      <section class="matrix-glow bg-black p-6">
+        <form method="post" action="{{ url_for('scan') }}" class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end" data-ajax-form data-loading-message="Executing safe local network scan">
+          <label class="grid gap-2 text-[10px] uppercase tracking-widest text-primary/70">
+            Subnet_Target
+            <input class="bg-black border border-primary/30 text-primary placeholder:text-primary/30 focus:border-primary focus:ring-primary" type="text" name="subnet" placeholder="Auto detect or 192.168.1.0/24" value="{{ current_subnet }}">
+          </label>
+          <label class="grid gap-2 text-[10px] uppercase tracking-widest text-primary/70">
+            Port_Set
+            <input class="bg-black border border-primary/30 text-primary placeholder:text-primary/30 focus:border-primary focus:ring-primary" type="text" name="ports" value="common">
+          </label>
+          <button class="h-11 px-6 bg-primary text-black text-xs font-bold uppercase tracking-widest hover:shadow-[0_0_15px_#00FF41] transition-all" type="submit">
+            Run_Safe_Scan
+          </button>
+        </form>
+      </section>
+
+      <section class="grid grid-cols-12 gap-6">
+        <div id="topology" class="col-span-12 lg:col-span-7 h-[420px] matrix-glow relative flex items-center justify-center overflow-hidden bg-black">
+          <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle, #00FF41 1px, transparent 1px); background-size: 20px 20px;"></div>
+          <div class="absolute top-6 left-6 flex items-center gap-2">
+            <div class="w-2 h-2 bg-primary animate-pulse shadow-[0_0_8px_#00FF41]"></div>
+            <span class="text-[10px] uppercase tracking-[0.3em] font-bold">Live_Topology_View</span>
+          </div>
+          <div class="relative z-10 flex flex-col items-center">
+            <div class="w-20 h-20 border border-primary flex items-center justify-center shadow-[0_0_25px_rgba(0,255,65,0.3)] bg-black">
+              <span class="material-symbols-outlined text-4xl">router</span>
+            </div>
+            <span class="text-[10px] mt-2 uppercase tracking-widest font-bold">Local_Gateway</span>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] border border-primary/10 rounded-full"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] h-[440px] border border-primary/5 rounded-full"></div>
+            {% for device in devices[:4] %}
+              {% set positions = ['-top-32 left-32', 'top-32 -left-32', '-bottom-16 left-48', '-bottom-16 -left-48'] %}
+              <div class="absolute {{ positions[loop.index0] }} flex flex-col items-center group">
+                <div class="w-12 h-12 border border-primary/40 bg-black flex items-center justify-center group-hover:border-primary transition-all">
+                  <span class="material-symbols-outlined text-lg">devices</span>
+                </div>
+                <span class="text-[8px] mt-1 opacity-60">{{ device.ip }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div id="ports" class="col-span-12 lg:col-span-5 h-[420px] flex flex-col matrix-glow bg-black">
+          <div class="bg-primary/10 px-4 py-2 border-b border-primary/30 flex justify-between items-center">
+            <span class="text-[10px] font-bold uppercase tracking-widest">Port_Scan :: Summary</span>
+            <div class="flex gap-1.5">
+              <div class="w-2 h-2 rounded-full border border-primary/50"></div>
+              <div class="w-2 h-2 rounded-full border border-primary/50"></div>
+              <div class="w-2 h-2 rounded-full bg-primary/80"></div>
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-2 text-xs">
+            {% for device in devices %}
+              {% for port in device.open_ports %}
+                <div class="p-3 border border-primary/20 bg-primary/5 flex items-center justify-between hover:border-primary/60 transition-all">
+                  <div class="flex items-center gap-6">
+                    <span class="text-primary font-bold w-20">{{ device.ip }}</span>
+                    <span class="opacity-80">{{ port }}</span>
+                  </div>
+                  <span class="text-[9px] border border-primary/30 px-2 py-0.5 uppercase tracking-widest">Open</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="p-3 border border-primary/20 bg-primary/5 text-primary/60 uppercase tracking-widest">
+                No port data yet. Run a safe scan.
+              </div>
+            {% endfor %}
+          </div>
+          <div class="p-4 border-t border-primary/20">
+            <form method="post" action="{{ url_for('scan') }}" data-ajax-form data-loading-message="Refreshing port checks">
+              <input type="hidden" name="subnet" value="{{ current_subnet }}">
+              <input type="hidden" name="ports" value="common">
+              <button class="w-full h-10 border border-primary text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-primary hover:text-black transition-all" type="submit">
+                Refresh_Safe_Check
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="activity" class="matrix-glow bg-black border border-primary/30">
+        <div class="bg-primary/10 px-4 py-1.5 border-b border-primary/30 flex items-center gap-3">
+          <span class="material-symbols-outlined text-sm">terminal</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest">Scanner_Activity_Stream</span>
+        </div>
+        <div class="p-4 h-36 overflow-y-auto text-xs space-y-1 font-mono selection:bg-primary selection:text-black">
+          <div class="opacity-50">&gt; [SYSTEM] Dashboard session active.</div>
+          <div class="opacity-70">&gt; [SCOPE] Private local network validation enabled.</div>
+          <div class="text-primary">&gt; [MODE] ARP discovery and TCP connect checks only.</div>
+          {% if current_subnet %}
+            <div class="text-primary">&gt; [SUBNET] {{ current_subnet }}</div>
+          {% endif %}
+          {% for device in devices[:5] %}
+            <div class="text-primary">&gt; [FOUND] {{ device.ip }} {{ device.hostname }} {{ device.mac }}</div>
+          {% endfor %}
+          <div class="text-primary/80">&gt; Ready<span class="terminal-cursor"></span></div>
+        </div>
+      </section>
+
+      <section class="matrix-glow bg-black border border-primary/30 overflow-hidden">
+        <div class="p-6 border-b border-primary/20 flex justify-between items-center bg-primary/5">
+          <h3 class="text-lg font-bold tracking-[0.1em] uppercase">Error_Log_Buffer</h3>
+          <span class="text-[10px] uppercase tracking-widest text-primary/60">{{ (error_logs or [])|length }} entries</span>
+        </div>
+        <div class="overflow-x-auto max-h-80">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-primary/10 text-primary/60 uppercase tracking-widest border-b border-primary/30 sticky top-0">
+              <tr>
+                <th class="px-6 py-4 font-bold">Time_UTC</th>
+                <th class="px-6 py-4 font-bold">Source</th>
+                <th class="px-6 py-4 font-bold">Method</th>
+                <th class="px-6 py-4 font-bold">Route</th>
+                <th class="px-6 py-4 font-bold">Error</th>
+                <th class="px-6 py-4 font-bold">Details</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-primary/10">
+              {% for log in error_logs or [] %}
+                <tr class="hover:bg-primary/5 transition-colors">
+                  <td class="px-6 py-4 text-primary/70">{{ log.time }}</td>
+                  <td class="px-6 py-4 uppercase">{{ log.source }}</td>
+                  <td class="px-6 py-4">{{ log.method or '-' }}</td>
+                  <td class="px-6 py-4">{{ log.route or '-' }}</td>
+                  <td class="px-6 py-4 text-error">{{ log.exception or log.message }}</td>
+                  <td class="px-6 py-4 text-primary/70">{{ log.traceback or log.message }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td class="px-6 py-8 text-center text-primary/60 uppercase tracking-widest" colspan="6">
+                    No errors logged.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="devices" class="matrix-glow bg-black border border-primary/30 overflow-hidden">
+        <div class="p-6 border-b border-primary/20 flex justify-between items-center bg-primary/5">
+          <h3 class="text-lg font-bold tracking-[0.1em] uppercase">Inventory_Manifest</h3>
+          <div class="flex gap-4">
+            <a class="px-4 py-1.5 border border-primary/40 text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center gap-2" href="#devices">
+              <span class="material-symbols-outlined text-xs">filter_alt</span> All_Nodes
+            </a>
+            <a class="px-4 py-1.5 border border-primary/40 text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center gap-2" href="#reports">
+              <span class="material-symbols-outlined text-xs">download</span> Reports
+            </a>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-primary/10 text-primary/60 uppercase tracking-widest border-b border-primary/30">
+              <tr>
+                <th class="px-6 py-4 font-bold">Node_Identity</th>
+                <th class="px-6 py-4 font-bold">IPv4_Address</th>
+                <th class="px-6 py-4 font-bold">Hardware_MAC</th>
+                <th class="px-6 py-4 font-bold">Manufacturer</th>
+                <th class="px-6 py-4 font-bold text-center">Ports</th>
+                <th class="px-6 py-4 font-bold">Status</th>
+                <th class="px-6 py-4 font-bold text-right">Open_Services</th>
+                <th class="px-6 py-4 font-bold text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-primary/10">
+              {% for device in devices %}
+                <tr class="hover:bg-primary/5 transition-colors">
+                  <td class="px-6 py-4 flex items-center gap-4">
+                    <span class="material-symbols-outlined opacity-60">devices</span>
+                    <span class="font-bold">{{ device.hostname if device.hostname != 'Unknown' else 'LAN_Node_' ~ loop.index }}</span>
+                  </td>
+                  <td class="px-6 py-4 text-primary">{{ device.ip }}</td>
+                  <td class="px-6 py-4 opacity-60 font-mono uppercase">{{ device.mac }}</td>
+                  <td class="px-6 py-4">{{ device.vendor }}</td>
+                  <td class="px-6 py-4 text-center"><span class="border border-primary/30 px-2 py-0.5">{{ "%02d"|format(device.open_ports|length) }}</span></td>
+                  <td class="px-6 py-4">
+                    <span class="flex items-center gap-2 text-primary font-bold uppercase text-[10px]">
+                      <span class="w-1.5 h-1.5 bg-primary shadow-[0_0_5px_#00FF41]"></span>
+                      {{ device.status }}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-right text-primary/70">
+                    {{ ", ".join(device.open_ports) if device.open_ports else "None" }}
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    {% if device.open_ports and '80/HTTP' in device.open_ports %}
+                      <form method="post" action="{{ url_for('find_projects') }}" data-ajax-form data-project-find-form data-loading-message="Finding visible project folders">
+                        <input type="hidden" name="ip" value="{{ device.ip }}">
+                        <button class="px-3 py-1.5 border border-primary/50 text-primary text-[9px] uppercase tracking-widest hover:bg-primary hover:text-black transition-all whitespace-nowrap" type="submit">
+                          Find_Projects
+                        </button>
+                      </form>
+                    {% else %}
+                      <span class="text-[9px] uppercase tracking-widest text-primary/30 whitespace-nowrap">Port_80_Closed</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td class="px-6 py-10 text-center text-primary/60 uppercase tracking-widest" colspan="8">
+                    No scan results yet. Run Safe Scan to populate the manifest.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer id="reports" class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start pb-20">
+        <div class="matrix-glow bg-black p-6 space-y-4">
+          <div class="flex items-center gap-3 border-b border-primary/20 pb-2">
+            <span class="material-symbols-outlined text-sm">data_exploration</span>
+            <span class="text-[10px] font-bold uppercase tracking-[0.2em]">Data_Persistence_Modules</span>
+          </div>
+          <div class="grid grid-cols-3 gap-4">
+            <form method="post" action="{{ url_for('export') }}" data-ajax-form data-loading-message="Exporting JSON report">
+              <button class="h-12 w-full border border-primary/40 hover:bg-primary hover:text-black flex items-center justify-center gap-2 transition-all" type="submit">
+                <span class="material-symbols-outlined text-sm">data_object</span>
+                <span class="text-[9px] font-bold uppercase">JSON</span>
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('export') }}" data-ajax-form data-loading-message="Exporting CSV report">
+              <button class="h-12 w-full border border-primary/40 hover:bg-primary hover:text-black flex items-center justify-center gap-2 transition-all" type="submit">
+                <span class="material-symbols-outlined text-sm">table_view</span>
+                <span class="text-[9px] font-bold uppercase">CSV</span>
+              </button>
+            </form>
+            <form method="post" action="{{ url_for('export') }}" data-ajax-form data-loading-message="Exporting Markdown report">
+              <button class="h-12 w-full border border-primary/40 hover:bg-primary hover:text-black flex items-center justify-center gap-2 transition-all" type="submit">
+                <span class="material-symbols-outlined text-sm">description</span>
+                <span class="text-[9px] font-bold uppercase">MD</span>
+              </button>
+            </form>
+          </div>
+        </div>
+        <div class="matrix-glow border-l-4 border-primary p-6 bg-primary/5">
+          <div class="flex gap-4">
+            <span class="material-symbols-outlined text-3xl opacity-80">gavel</span>
+            <div class="space-y-2">
+              <h4 class="text-[10px] font-bold uppercase tracking-[0.2em]">Safety_Notice :: Authorized_Use</h4>
+              <p class="text-[10px] leading-relaxed opacity-70">
+                This tool is for authorized private local networks only. It performs device discovery and basic port checks, with public ranges and broad scans blocked by validation.
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </main>
+
+    <div class="fixed bottom-0 right-0 w-96 h-96 pointer-events-none z-0 opacity-5">
+      <svg class="w-full h-full fill-primary" viewBox="0 0 100 100">
+        <path d="M50 0 L100 25 L100 75 L50 100 L0 75 L0 25 Z" fill-opacity="0.1" stroke="currentColor" stroke-width="0.5"></path>
+        <text fill="currentColor" font-size="2" text-anchor="middle" x="50" y="50">0101010101010101</text>
+      </svg>
+    </div>
+    <script>
+      (() => {
+        const canvas = document.getElementById("matrix-rain");
+        if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          return;
+        }
+
+        const context = canvas.getContext("2d");
+        const glyphs = "01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&@";
+        const fontSize = 16;
+        let columns = 0;
+        let drops = [];
+        let animationFrame = null;
+
+        function resizeMatrixRain() {
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(window.innerWidth * ratio);
+          canvas.height = Math.floor(window.innerHeight * ratio);
+          canvas.style.width = `${window.innerWidth}px`;
+          canvas.style.height = `${window.innerHeight}px`;
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+          columns = Math.ceil(window.innerWidth / fontSize);
+          drops = Array.from({ length: columns }, () => Math.floor(Math.random() * -window.innerHeight / fontSize));
+        }
+
+        function drawMatrixRain() {
+          context.fillStyle = "rgba(0, 0, 0, 0.08)";
+          context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+          context.font = `${fontSize}px JetBrains Mono, monospace`;
+
+          for (let index = 0; index < drops.length; index += 1) {
+            const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
+            const x = index * fontSize;
+            const y = drops[index] * fontSize;
+            context.fillStyle = Math.random() > 0.975 ? "#d8ffe0" : "#00ff41";
+            context.fillText(glyph, x, y);
+
+            if (y > window.innerHeight && Math.random() > 0.965) {
+              drops[index] = 0;
+            } else {
+              drops[index] += 1;
+            }
+          }
+
+          animationFrame = window.setTimeout(() => {
+            window.requestAnimationFrame(drawMatrixRain);
+          }, 42);
+        }
+
+        resizeMatrixRain();
+        drawMatrixRain();
+        window.addEventListener("resize", resizeMatrixRain);
+        window.addEventListener("beforeunload", () => {
+          if (animationFrame) {
+            window.clearTimeout(animationFrame);
+          }
+        });
+      })();
+
+      (() => {
+        const loader = document.getElementById("ajax-loader");
+        const loaderMessage = document.getElementById("ajax-loader-message");
+        const elapsedNode = document.getElementById("ajax-elapsed");
+        const estimateNode = document.getElementById("ajax-estimate");
+        const alertPanel = document.getElementById("matrix-alert");
+        const alertClose = document.getElementById("matrix-alert-close");
+        const alertAction = document.getElementById("matrix-alert-action");
+        const alertMethod = document.getElementById("matrix-alert-method");
+        const alertElapsed = document.getElementById("matrix-alert-elapsed");
+        const alertError = document.getElementById("matrix-alert-error");
+        const projectModal = document.getElementById("project-modal");
+        const projectModalClose = document.getElementById("project-modal-close");
+        const projectModalTarget = document.getElementById("project-modal-target");
+        const projectWordSearch = document.getElementById("project-word-search");
+        const projectLiveLog = document.getElementById("project-live-log");
+        const projectBaseUrl = document.getElementById("project-base-url");
+        const projectRootStatus = document.getElementById("project-root-status");
+        const projectMatchCount = document.getElementById("project-match-count");
+        const projectResultsGrid = document.getElementById("project-results-grid");
+        const projectCompletePopup = document.getElementById("project-complete-popup");
+        const projectCompleteClose = document.getElementById("project-complete-close");
+        const projectCompleteTarget = document.getElementById("project-complete-target");
+        const projectCompleteCount = document.getElementById("project-complete-count");
+        const projectTreeModal = document.getElementById("project-tree-modal");
+        const projectTreeClose = document.getElementById("project-tree-close");
+        const projectTreeTarget = document.getElementById("project-tree-target");
+        const projectTreeOpenLink = document.getElementById("project-tree-open-link");
+        const projectTreeRootStatus = document.getElementById("project-tree-root-status");
+        const projectTreeCount = document.getElementById("project-tree-count");
+        const projectTreeDepth = document.getElementById("project-tree-depth");
+        const projectTreeConsole = document.getElementById("project-tree-console");
+        const projectTreeResults = document.getElementById("project-tree-results");
+        let loaderTimer = null;
+        let startedAt = 0;
+        let liveProbeTimer = null;
+        let projectTreeAbortController = null;
+        let projectTreeNodeCount = 0;
+        let latestProjectResults = null;
+        const fallbackProjectWords = [
+          "project", "projects", "app", "apps", "web", "site", "public", "static",
+          "assets", "docs", "api", "dashboard", "portal", "dev", "test"
+        ];
+
+        function formatSeconds(seconds) {
+          const safeSeconds = Math.max(0, Math.floor(seconds));
+          if (safeSeconds < 60) {
+            return `${String(safeSeconds).padStart(2, "0")}s`;
+          }
+          const minutes = Math.floor(safeSeconds / 60);
+          const rest = safeSeconds % 60;
+          return `${minutes}m ${String(rest).padStart(2, "0")}s`;
+        }
+
+        function estimateRequest(form) {
+          const action = new URL(form.action, window.location.href).pathname;
+          if (action.includes("/scan")) {
+            const portsValue = (new FormData(form).get("ports") || "common").toString();
+            const portCount = portsValue.toLowerCase() === "common"
+              ? 18
+              : portsValue.split(",").filter(Boolean).length || 1;
+            const baseSeconds = portCount <= 4 ? 5 : 10;
+            return `~${baseSeconds}-${baseSeconds + 10}s`;
+          }
+          if (action.includes("/export")) {
+            return "~1-3s";
+          }
+          if (action.includes("/find-projects")) {
+            return "~3-8s";
+          }
+          if (action.includes("/logout")) {
+            return "~1s";
+          }
+          return "~2-5s";
+        }
+
+        function showLoader(message, estimate) {
+          if (loaderMessage) {
+            loaderMessage.textContent = `> ${message || "Processing local request"}`;
+          }
+          if (estimateNode) {
+            estimateNode.textContent = estimate || "Calculating";
+          }
+          startedAt = Date.now();
+          if (elapsedNode) {
+            elapsedNode.textContent = "00s";
+          }
+          if (loaderTimer) {
+            clearInterval(loaderTimer);
+          }
+          loaderTimer = setInterval(() => {
+            if (elapsedNode) {
+              elapsedNode.textContent = formatSeconds((Date.now() - startedAt) / 1000);
+            }
+          }, 250);
+          if (loader) {
+            loader.classList.add("is-active");
+          }
+        }
+
+        function hideLoader() {
+          if (loaderTimer) {
+            clearInterval(loaderTimer);
+            loaderTimer = null;
+          }
+          if (loader) {
+            loader.classList.remove("is-active");
+          }
+        }
+
+        function showMatrixAlert(payload) {
+          if (alertAction) alertAction.textContent = payload.action || "-";
+          if (alertMethod) alertMethod.textContent = (payload.method || "-").toUpperCase();
+          if (alertElapsed) alertElapsed.textContent = `${Math.round((payload.elapsed_ms || 0) / 1000)}s`;
+          if (alertError) alertError.textContent = payload.message || "Request failed";
+          if (alertPanel) alertPanel.classList.add("is-active");
+        }
+
+        if (alertClose && alertPanel) {
+          alertClose.addEventListener("click", () => alertPanel.classList.remove("is-active"));
+        }
+
+        function escapeHtml(value) {
+          return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+        }
+
+        function openProjectModal(targetIp) {
+          latestProjectResults = null;
+          hideProjectCompletePopup();
+          if (projectModalTarget) projectModalTarget.textContent = `Target: ${targetIp}`;
+          if (projectWordSearch) projectWordSearch.value = "";
+          if (projectBaseUrl) projectBaseUrl.textContent = `http://${targetIp}/`;
+          if (projectRootStatus) projectRootStatus.textContent = "Scanning";
+          if (projectMatchCount) projectMatchCount.textContent = "00";
+          if (projectResultsGrid) {
+            projectResultsGrid.innerHTML = '<div class="project-empty border border-primary/20 bg-primary/5 p-4 text-primary/60 uppercase tracking-widest text-xs">Awaiting project nodes<span class="terminal-cursor"></span></div>';
+          }
+          if (projectLiveLog) {
+            projectLiveLog.innerHTML = "";
+          }
+          if (projectModal) {
+            projectModal.classList.add("is-active");
+            document.body.classList.add("overflow-hidden");
+          }
+        }
+
+        function closeProjectModal() {
+          if (liveProbeTimer) {
+            clearInterval(liveProbeTimer);
+            liveProbeTimer = null;
+          }
+          if (projectModal) {
+            projectModal.classList.remove("is-active");
+            document.body.classList.remove("overflow-hidden");
+          }
+        }
+
+        function showProjectCompletePopup(results) {
+          const count = (results?.folders || []).length;
+          const target = results?.target_ip || "-";
+          if (projectCompleteTarget) projectCompleteTarget.textContent = `Target: ${target}`;
+          if (projectCompleteCount) projectCompleteCount.textContent = String(count).padStart(2, "0");
+          if (projectCompletePopup) projectCompletePopup.classList.add("is-active");
+        }
+
+        function hideProjectCompletePopup() {
+          if (projectCompletePopup) projectCompletePopup.classList.remove("is-active");
+        }
+
+        function appendProjectLog(message, tone = "text-primary/70") {
+          if (!projectLiveLog) return;
+          const row = document.createElement("div");
+          row.className = `project-log-row ${tone} break-all`;
+          row.innerHTML = `&gt; ${escapeHtml(message)}`;
+          projectLiveLog.appendChild(row);
+          projectLiveLog.scrollTop = projectLiveLog.scrollHeight;
+        }
+
+        function appendTreeConsole(message, tone = "text-primary/70") {
+          if (!projectTreeConsole) return;
+          const row = document.createElement("div");
+          row.className = `${tone} break-all`;
+          row.innerHTML = `&gt; ${escapeHtml(message)}`;
+          projectTreeConsole.appendChild(row);
+          projectTreeConsole.scrollTop = projectTreeConsole.scrollHeight;
+        }
+
+        function appendTreeNode(folder) {
+          if (!projectTreeResults) return;
+          projectTreeNodeCount += 1;
+          if (projectTreeCount) projectTreeCount.textContent = String(projectTreeNodeCount).padStart(2, "0");
+
+          const depth = Math.max(1, Number(folder.depth || 1));
+          const found = Boolean(folder.found);
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = `project-tree-row w-full border ${found ? "border-primary/35 text-primary" : "border-primary/10 text-primary/35"} bg-primary/5 p-3 text-left transition-all`;
+          row.dataset.found = String(found);
+          row.dataset.url = folder.url || "";
+          row.style.paddingLeft = `${Math.min(44, 12 + (depth - 1) * 16)}px`;
+          row.innerHTML = `
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0 flex items-center gap-2">
+                <span class="text-primary/50">${"&gt;".repeat(depth)}</span>
+                <span class="material-symbols-outlined text-sm">${found ? "folder_open" : "folder_off"}</span>
+                <span class="font-bold truncate">/${escapeHtml(folder.name || "folder")}/</span>
+              </div>
+              <span class="shrink-0 text-[9px] border border-current px-2 py-0.5">${escapeHtml(folder.status || "-")}</span>
+            </div>
+            <div class="mt-2 text-[10px] opacity-70 break-all">${escapeHtml(folder.url || "")}</div>
+            <div class="mt-2 text-[9px] uppercase tracking-widest opacity-50">Children: ${String((folder.children || []).length).padStart(2, "0")}</div>
+          `;
+          projectTreeResults.appendChild(row);
+          projectTreeResults.scrollTop = projectTreeResults.scrollHeight;
+        }
+
+        function closeProjectTreeModal() {
+          if (projectTreeAbortController) {
+            projectTreeAbortController.abort();
+            projectTreeAbortController = null;
+          }
+          if (projectTreeModal) {
+            projectTreeModal.classList.remove("is-active");
+          }
+        }
+
+        async function openProjectTreeModal(folder) {
+          closeProjectTreeModal();
+          projectTreeAbortController = new AbortController();
+          projectTreeNodeCount = 0;
+
+          if (projectTreeTarget) projectTreeTarget.textContent = `Target: ${folder.url || "-"}`;
+          if (projectTreeOpenLink) projectTreeOpenLink.href = folder.url || "#";
+          if (projectTreeRootStatus) projectTreeRootStatus.textContent = "Scanning";
+          if (projectTreeCount) projectTreeCount.textContent = "00";
+          if (projectTreeDepth) projectTreeDepth.textContent = "03";
+          if (projectTreeConsole) projectTreeConsole.innerHTML = "";
+          if (projectTreeResults) {
+            projectTreeResults.innerHTML = '<div class="project-empty border border-primary/20 bg-primary/5 p-4 text-primary/60 uppercase tracking-widest text-xs">Tracing subfolders<span class="terminal-cursor"></span></div>';
+          }
+          if (projectTreeModal) projectTreeModal.classList.add("is-active");
+
+          appendTreeConsole("[BOOT] nested trace modal online", "text-primary");
+          appendTreeConsole(`[TARGET] ${folder.url || "-"}`, "text-primary/70");
+
+          const formData = new FormData();
+          formData.set("url", folder.url || "");
+
+          try {
+            const response = await fetch("/inspect-project-folders", {
+              method: "POST",
+              body: formData,
+              credentials: "same-origin",
+              signal: projectTreeAbortController.signal,
+              headers: {
+                "Accept": "application/x-ndjson",
+                "X-Requested-With": "XMLHttpRequest"
+              }
+            });
+            if (!response.ok) {
+              throw new Error(`Request failed with HTTP ${response.status}`);
+            }
+            if (!response.body) {
+              throw new Error("Streaming response is not available in this browser.");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let pending = "";
+            let streamDone = false;
+
+            while (!streamDone) {
+              const chunk = await reader.read();
+              streamDone = chunk.done;
+              pending += decoder.decode(chunk.value || new Uint8Array(), { stream: !streamDone });
+              const lines = pending.split("\n");
+              pending = lines.pop() || "";
+
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                const payload = JSON.parse(line);
+                if (!payload.ok) {
+                  throw new Error(payload.message || "Subfolder trace failed");
+                }
+                if (payload.event === "meta") {
+                  if (projectTreeRootStatus) projectTreeRootStatus.textContent = payload.root_status || "-";
+                  if (projectTreeDepth) projectTreeDepth.textContent = String(payload.max_depth || 3).padStart(2, "0");
+                  if (projectTreeResults) projectTreeResults.innerHTML = "";
+                  appendTreeConsole(`[ROOT] ${payload.base_url} status=${payload.root_status}`, "text-primary");
+                  appendTreeConsole(`[LIMIT] depth=${payload.max_depth} nodes=${payload.max_nodes}`, "text-primary/60");
+                }
+                if (payload.event === "folder") {
+                  appendTreeNode(payload.folder || {});
+                  appendTreeConsole(
+                    `[${payload.folder?.found ? "FOUND" : "MISS"}] ${payload.folder?.url || "-"} status=${payload.folder?.status || "-"}`,
+                    payload.folder?.found ? "text-primary" : "text-primary/40"
+                  );
+                }
+                if (payload.event === "done") {
+                  appendTreeConsole(`[DONE] ${String(projectTreeNodeCount).padStart(2, "0")} nested nodes traced`, "text-primary");
+                }
+              }
+            }
+          } catch (error) {
+            if (error instanceof DOMException && error.name === "AbortError") {
+              appendTreeConsole("[ABORT] nested trace stopped", "text-primary/40");
+              return;
+            }
+            const message = error instanceof Error ? error.message : "Subfolder trace failed";
+            appendTreeConsole(`[ERROR] ${message}`, "text-error");
+            logClientError({
+              message,
+              action: "/inspect-project-folders",
+              method: "POST",
+              route: window.location.pathname,
+              elapsed_ms: 0
+            });
+          }
+        }
+
+        function startLiveProbe(words) {
+          if (liveProbeTimer) clearInterval(liveProbeTimer);
+          appendProjectLog("[SYSTEM] full_width_modal online", "text-primary");
+          appendProjectLog(`[QUEUE] ${String(words.length).padStart(2, "0")} safe words loaded`);
+        }
+
+        function renderProjectResults() {
+          if (!latestProjectResults || !projectResultsGrid) return;
+          const query = (projectWordSearch?.value || "").trim().toLowerCase();
+          const folders = (latestProjectResults.folders || []).filter((folder) => {
+            const haystack = `${folder.name || ""} ${folder.url || ""}`.toLowerCase();
+            return !query || haystack.includes(query);
+          });
+
+          if (projectBaseUrl) projectBaseUrl.textContent = latestProjectResults.base_url || "-";
+          if (projectRootStatus) projectRootStatus.textContent = latestProjectResults.root_status || "-";
+          if (projectMatchCount) projectMatchCount.textContent = String(folders.length).padStart(2, "0");
+
+          if (!folders.length) {
+            projectResultsGrid.innerHTML = '<div class="project-empty border border-primary/20 bg-primary/5 p-4 text-primary/60 uppercase tracking-widest text-xs">No matching visible project folders.</div>';
+            return;
+          }
+
+          projectResultsGrid.innerHTML = folders.map((folder) => `
+            <div class="project-card border border-primary/30 bg-primary/5 p-4 min-w-0 text-left cursor-pointer" role="button" tabindex="0" data-project-folder-card data-folder-name="${escapeHtml(folder.name)}" data-folder-url="${escapeHtml(folder.url)}" data-folder-status="${escapeHtml(folder.status)}">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-bold truncate">/${escapeHtml(folder.name)}/</span>
+                <span class="flex items-center gap-2 shrink-0">
+                  <span class="text-[9px] border border-current px-2 py-0.5">${escapeHtml(folder.status)}</span>
+                  <a class="inline-flex h-6 w-6 items-center justify-center border border-primary/40 hover:bg-primary hover:text-black" href="${escapeHtml(folder.url)}" target="_blank" rel="noopener noreferrer" data-project-folder-open title="Open folder in new tab">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span>
+                  </a>
+                </span>
+              </div>
+              <div class="mt-3 text-[10px] opacity-70 break-all">${escapeHtml(folder.url)}</div>
+              <div class="mt-3 text-[9px] uppercase tracking-widest text-primary/50">Click_To_Trace_Subfolders</div>
+            </div>
+          `).join("");
+        }
+
+        function finishProjectLog(results) {
+          if (liveProbeTimer) {
+            clearInterval(liveProbeTimer);
+            liveProbeTimer = null;
+          }
+          (results.checked || []).forEach((row) => {
+            const found = Boolean(row.found);
+            appendProjectLog(
+              `[${found ? "FOUND" : "MISS"}] /${row.name}/ status=${row.status}`,
+              found ? "text-primary" : "text-primary/40"
+            );
+          });
+          appendProjectLog(`[DONE] ${String((results.folders || []).length).padStart(2, "0")} related project nodes visible`, "text-primary");
+        }
+
+        function renderLegacyProjectHtml(html, targetIp) {
+          const parsed = new DOMParser().parseFromString(html, "text/html");
+          const links = Array.from(parsed.querySelectorAll('a[href^="http://"]')).filter((link) => {
+            return link.textContent.includes("/") && link.href.includes(targetIp);
+          });
+          latestProjectResults = {
+            target_ip: targetIp,
+            base_url: `http://${targetIp}/`,
+            root_status: "Complete",
+            main_project: targetIp,
+            folders: links.map((link) => {
+              const path = new URL(link.href).pathname.split("/").filter(Boolean)[0] || "project";
+              const status = link.querySelector("span:last-child")?.textContent?.trim() || "Open";
+              return { name: path, url: link.href, status };
+            }),
+            checked: [],
+            search_words: fallbackProjectWords
+          };
+          appendProjectLog("[FALLBACK] parsed dashboard response into modal", "text-primary/70");
+          appendProjectLog(`[DONE] ${String(latestProjectResults.folders.length).padStart(2, "0")} related project nodes visible`, "text-primary");
+          renderProjectResults();
+          showProjectCompletePopup(latestProjectResults);
+        }
+
+        async function submitProjectFindForm(form) {
+          const requestStartedAt = Date.now();
+          const targetIp = (new FormData(form).get("ip") || "").toString();
+          openProjectModal(targetIp);
+          startLiveProbe(fallbackProjectWords);
+          latestProjectResults = {
+            target_ip: targetIp,
+            base_url: `http://${targetIp}/`,
+            root_status: "Scanning",
+            main_project: targetIp,
+            folders: [],
+            checked: [],
+            search_words: fallbackProjectWords
+          };
+
+          try {
+            const response = await fetch(form.action, {
+              method: form.method || "POST",
+              body: new FormData(form),
+              credentials: "same-origin",
+              headers: {
+                "Accept": "application/x-ndjson",
+                "X-Project-Modal": "1",
+                "X-Project-Stream": "1",
+                "X-Requested-With": "XMLHttpRequest"
+              }
+            });
+            if (!response.ok) {
+              const errorText = await response.text();
+              const firstLine = errorText.split("\n").find(Boolean);
+              let errorMessage = `Request failed with HTTP ${response.status}`;
+              if (firstLine) {
+                try {
+                  errorMessage = JSON.parse(firstLine).message || errorMessage;
+                } catch (_) {}
+              }
+              throw new Error(errorMessage);
+            }
+            const contentType = response.headers.get("Content-Type") || "";
+            if (!contentType.includes("application/x-ndjson")) {
+              renderLegacyProjectHtml(await response.text(), targetIp);
+              return;
+            }
+            if (!response.body) {
+              throw new Error("Streaming response is not available in this browser.");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let pending = "";
+            let streamDone = false;
+
+            while (!streamDone) {
+              const chunk = await reader.read();
+              streamDone = chunk.done;
+              pending += decoder.decode(chunk.value || new Uint8Array(), { stream: !streamDone });
+              const lines = pending.split("\n");
+              pending = lines.pop() || "";
+
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                const payload = JSON.parse(line);
+                if (!payload.ok) {
+                  throw new Error(payload.message || "Project discovery failed");
+                }
+                if (payload.event === "meta") {
+                  latestProjectResults = {
+                    target_ip: payload.target_ip,
+                    base_url: payload.base_url,
+                    root_status: payload.root_status,
+                    main_project: payload.main_project,
+                    folders: [],
+                    checked: [],
+                    search_words: payload.search_words || fallbackProjectWords
+                  };
+                  appendProjectLog(`[ROOT] ${payload.base_url} status=${payload.root_status}`, "text-primary");
+                  appendProjectLog(`[QUEUE] ${String(latestProjectResults.search_words.length).padStart(2, "0")} total words/folders discovered`, "text-primary/70");
+                  renderProjectResults();
+                }
+                if (payload.event === "probe") {
+                  const row = payload.probe;
+                  latestProjectResults.checked.push(row);
+                  if (row.found) {
+                    latestProjectResults.folders.push({
+                      name: String(row.name),
+                      url: String(row.url),
+                      status: String(row.status)
+                    });
+                  }
+                  appendProjectLog(
+                    `[${row.found ? "FOUND" : "MISS"}] /${row.name}/ status=${row.status}`,
+                    row.found ? "text-primary" : "text-primary/40"
+                  );
+                  renderProjectResults();
+                }
+                if (payload.event === "done") {
+                  appendProjectLog(`[DONE] ${String((latestProjectResults.folders || []).length).padStart(2, "0")} related project nodes visible`, "text-primary");
+                  showProjectCompletePopup(latestProjectResults);
+                }
+              }
+            }
+          } catch (error) {
+            if (liveProbeTimer) {
+              clearInterval(liveProbeTimer);
+              liveProbeTimer = null;
+            }
+            const errorMessage = error instanceof Error ? error.message : "Request failed";
+            appendProjectLog(`[ERROR] ${errorMessage}`, "text-error");
+            const payload = {
+              message: errorMessage,
+              action: form.action,
+              method: form.method || "POST",
+              route: window.location.pathname,
+              elapsed_ms: Date.now() - requestStartedAt
+            };
+            logClientError(payload);
+          }
+        }
+
+        if (projectModalClose) {
+          projectModalClose.addEventListener("click", closeProjectModal);
+        }
+
+        if (projectCompleteClose) {
+          projectCompleteClose.addEventListener("click", hideProjectCompletePopup);
+        }
+
+        if (projectCompletePopup) {
+          projectCompletePopup.addEventListener("click", (event) => {
+            if (event.target === projectCompletePopup) {
+              hideProjectCompletePopup();
+            }
+          });
+        }
+
+        if (projectTreeClose) {
+          projectTreeClose.addEventListener("click", closeProjectTreeModal);
+        }
+
+        if (projectTreeModal) {
+          projectTreeModal.addEventListener("click", (event) => {
+            if (event.target === projectTreeModal) {
+              closeProjectTreeModal();
+            }
+          });
+        }
+
+        if (projectResultsGrid) {
+          projectResultsGrid.addEventListener("click", (event) => {
+            if (event.target.closest("[data-project-folder-open]")) {
+              event.stopPropagation();
+              return;
+            }
+            const card = event.target.closest("[data-project-folder-card]");
+            if (!card) return;
+            openProjectTreeModal({
+              name: card.dataset.folderName || "project",
+              url: card.dataset.folderUrl || "",
+              status: card.dataset.folderStatus || "-"
+            });
+          });
+          projectResultsGrid.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            const card = event.target.closest("[data-project-folder-card]");
+            if (!card) return;
+            event.preventDefault();
+            openProjectTreeModal({
+              name: card.dataset.folderName || "project",
+              url: card.dataset.folderUrl || "",
+              status: card.dataset.folderStatus || "-"
+            });
+          });
+        }
+
+        if (projectTreeResults) {
+          projectTreeResults.addEventListener("click", (event) => {
+            const row = event.target.closest("[data-url]");
+            if (!row || row.dataset.found !== "true") return;
+            openProjectTreeModal({
+              name: row.textContent.trim().split("/").filter(Boolean)[0] || "folder",
+              url: row.dataset.url || "",
+              status: "Trace"
+            });
+          });
+        }
+
+        if (projectModal) {
+          projectModal.addEventListener("click", (event) => {
+            if (event.target === projectModal) {
+              closeProjectModal();
+            }
+          });
+        }
+
+        if (projectWordSearch) {
+          projectWordSearch.addEventListener("input", renderProjectResults);
+        }
+
+        const initialProjectResultsNode = document.getElementById("initial-project-results");
+        if (initialProjectResultsNode) {
+          try {
+            latestProjectResults = JSON.parse(initialProjectResultsNode.textContent || "{}");
+            openProjectModal(latestProjectResults.target_ip || "-");
+            appendProjectLog("[SYSTEM] modal view restored from project results", "text-primary");
+            appendProjectLog(`[ROOT] ${latestProjectResults.base_url || "-"} status=${latestProjectResults.root_status || "-"}`, "text-primary");
+            (latestProjectResults.checked || []).forEach((row) => {
+              appendProjectLog(
+                `[${row.found ? "FOUND" : "MISS"}] /${row.name}/ status=${row.status}`,
+                row.found ? "text-primary" : "text-primary/40"
+              );
+            });
+            appendProjectLog(`[DONE] ${String((latestProjectResults.folders || []).length).padStart(2, "0")} project folders visible`, "text-primary");
+            renderProjectResults();
+            showProjectCompletePopup(latestProjectResults);
+          } catch (error) {
+            appendProjectLog("[ERROR] Could not restore project modal results", "text-error");
+          }
+        }
+
+        if (alertPanel) {
+          alertPanel.addEventListener("click", (event) => {
+            if (event.target === alertPanel) {
+              alertPanel.classList.remove("is-active");
+            }
+          });
+        }
+
+        function logClientError(payload) {
+          const body = JSON.stringify(payload);
+          if (navigator.sendBeacon) {
+            const blob = new Blob([body], { type: "application/json" });
+            navigator.sendBeacon("/client-error", blob);
+            return;
+          }
+          fetch("/client-error", {
+            method: "POST",
+            body,
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }).catch(() => {});
+        }
+
+        async function submitAjaxForm(form) {
+          const submitter = document.activeElement;
+          const message = form.dataset.loadingMessage || submitter?.dataset?.loadingMessage || "Processing local request";
+          const requestStartedAt = Date.now();
+          showLoader(message, estimateRequest(form));
+
+          try {
+            const response = await fetch(form.action, {
+              method: form.method || "POST",
+              body: new FormData(form),
+              credentials: "same-origin",
+              headers: {
+                "X-Requested-With": "XMLHttpRequest"
+              }
+            });
+
+            const html = await response.text();
+            if (!response.ok) {
+              throw new Error(`Request failed with HTTP ${response.status}`);
+            }
+
+            document.open();
+            document.write(html);
+            document.close();
+          } catch (error) {
+            hideLoader();
+            const errorMessage = error instanceof Error ? error.message : "Request failed";
+            const payload = {
+              message: errorMessage,
+              action: form.action,
+              method: form.method || "POST",
+              route: window.location.pathname,
+              elapsed_ms: Date.now() - requestStartedAt
+            };
+            logClientError(payload);
+            showMatrixAlert(payload);
+          }
+        }
+
+        document.querySelectorAll("form[data-project-find-form]").forEach((form) => {
+          form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            submitProjectFindForm(form);
+          });
+        });
+
+        document.querySelectorAll("form[data-ajax-form]:not([data-project-find-form])").forEach((form) => {
+          form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            submitAjaxForm(form);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

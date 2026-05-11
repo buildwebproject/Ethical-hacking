@@ -1,0 +1,506 @@
+<!doctype html>
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>NET_SCANNER | IDENTITY_VERIFICATION</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-container": "#00ff41",
+              "primary-fixed-dim": "#00e639",
+              "primary-fixed": "#72ff70",
+              "on-primary-container": "#007117",
+              "surface": "#0c160a",
+              "surface-container-lowest": "#071106",
+              "surface-container-low": "#141e12",
+              "surface-variant": "#2d382a",
+              "outline-variant": "#3b4b37",
+              "background": "#0c160a",
+              "on-background": "#dae6d2",
+              "surface-tint": "#00e639",
+              "error": "#ffb4ab",
+              "error-container": "#93000a",
+              "on-error-container": "#ffdad6"
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              full: "9999px"
+            },
+            spacing: {
+              "margin-mobile": "16px",
+              "margin-desktop": "64px",
+              "unit-1": "4px",
+              "unit-2": "8px",
+              "unit-4": "16px",
+              "unit-8": "32px",
+              "unit-12": "48px"
+            },
+            fontFamily: {
+              "label-sm": ["JetBrains Mono"],
+              "code-md": ["JetBrains Mono"],
+              "code-lg": ["JetBrains Mono"],
+              "headline-md": ["Space Grotesk"],
+              "body-md": ["Inter"]
+            }
+          }
+        }
+      };
+    </script>
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+
+      .digital-rain-overlay {
+        background: linear-gradient(0deg, rgba(0, 59, 0, 0.1) 50%, rgba(0, 255, 65, 0.05) 50%);
+        background-size: 100% 4px;
+        pointer-events: none;
+      }
+
+      .glass-panel {
+        backdrop-filter: blur(12px);
+        background: rgba(12, 22, 10, 0.85);
+        border: 1px solid #00e639;
+        box-shadow: 0 0 20px rgba(0, 230, 57, 0.2), inset 0 0 10px rgba(0, 230, 57, 0.1);
+      }
+
+      .matrix-bg {
+        background-image:
+          radial-gradient(circle at 50% 50%, rgba(0, 59, 0, 0.15) 0%, transparent 80%),
+          repeating-linear-gradient(transparent 0, rgba(0, 255, 65, 0.03) 1px, transparent 2px);
+      }
+
+      .matrix-rain-canvas {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.16;
+        mix-blend-mode: screen;
+      }
+
+      input:focus {
+        outline: none;
+        box-shadow: 0 0 15px rgba(0, 230, 57, 0.3);
+      }
+
+      .scanline {
+        width: 100%;
+        height: 2px;
+        background: rgba(0, 255, 65, 0.1);
+        position: absolute;
+        top: 0;
+        z-index: 10;
+        animation: scanline 8s linear infinite;
+      }
+
+      @keyframes scanline {
+        0% { top: 0%; }
+        100% { top: 100%; }
+      }
+
+      .ajax-loader {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+
+      .ajax-loader.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .loader-bar {
+        animation: loaderPulse 1s ease-in-out infinite;
+      }
+
+      .matrix-alert {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+
+      .matrix-alert.is-active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      @keyframes loaderPulse {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(260%); }
+      }
+    </style>
+  </head>
+  <body class="bg-background text-on-background font-body-md overflow-hidden min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+    <div class="fixed inset-0 z-0 matrix-bg pointer-events-none"></div>
+    <canvas id="matrix-rain" class="matrix-rain-canvas" aria-hidden="true"></canvas>
+    <div class="fixed inset-0 z-10 digital-rain-overlay pointer-events-none"></div>
+    <div class="scanline"></div>
+    <div id="matrix-alert" class="matrix-alert fixed inset-0 z-[130] bg-black/90 backdrop-blur-sm flex items-center justify-center p-unit-4">
+      <div class="glass-panel w-[min(620px,calc(100vw-32px))] p-unit-8 rounded-none border-error">
+        <div class="flex items-center justify-between border-b border-error/40 pb-unit-4">
+          <div class="flex items-center gap-unit-2 text-error">
+            <span class="material-symbols-outlined animate-pulse">warning</span>
+            <span class="font-code-md uppercase tracking-[0.25em]">Ajax_Request_Failed</span>
+          </div>
+          <button id="matrix-alert-close" class="border border-error/50 px-unit-4 py-unit-2 font-label-sm text-error hover:bg-error hover:text-black uppercase tracking-widest" type="button">Close</button>
+        </div>
+        <div class="py-unit-8 space-y-unit-4 font-label-sm text-xs">
+          <div class="text-error">&gt; Authentication request failed_</div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-unit-2 text-primary-fixed-dim/70">
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Action: <span id="matrix-alert-action" class="text-primary-fixed break-all">-</span></div>
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Method: <span id="matrix-alert-method" class="text-primary-fixed">-</span></div>
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Elapsed: <span id="matrix-alert-elapsed" class="text-primary-fixed">-</span></div>
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Logged: <span class="text-primary-fixed">Server_Buffer</span></div>
+          </div>
+          <div class="border border-error/40 bg-error-container/30 p-unit-2 text-on-error-container">
+            Error: <span id="matrix-alert-error">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="ajax-loader" class="ajax-loader fixed inset-0 z-[120] bg-black/90 backdrop-blur-sm flex items-center justify-center">
+      <div class="glass-panel w-[min(520px,calc(100vw-32px))] p-unit-8 rounded-none">
+        <div class="flex items-center gap-unit-2 border-b border-primary-fixed-dim/30 pb-unit-4">
+          <span class="material-symbols-outlined text-primary-fixed-dim animate-pulse">terminal</span>
+          <span class="font-code-md text-primary-fixed-dim uppercase tracking-[0.25em]">Authenticating</span>
+        </div>
+        <div class="py-unit-8 space-y-unit-4">
+          <div id="ajax-loader-message" class="font-code-md text-primary-fixed-dim uppercase tracking-widest">&gt; Verifying operator key_</div>
+          <div class="h-2 overflow-hidden border border-primary-fixed-dim/40 bg-primary-fixed-dim/5">
+            <div class="loader-bar h-full w-1/2 bg-primary-fixed-dim shadow-[0_0_18px_#00FF41]"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-unit-2 font-label-sm text-[10px] uppercase tracking-widest text-primary-fixed-dim/60">
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Elapsed: <span id="ajax-elapsed">00s</span></div>
+            <div class="border border-primary-fixed-dim/20 p-unit-2">Estimate: <span id="ajax-estimate">~1-3s</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main class="relative z-20 flex min-h-screen items-center justify-center p-margin-mobile md:p-margin-desktop">
+      <div class="glass-panel w-full max-w-md p-unit-8 rounded-none border-t-4 border-primary-fixed-dim">
+        <header class="mb-unit-12">
+          <div class="flex items-center gap-unit-2 mb-unit-4">
+            <span class="material-symbols-outlined text-primary-fixed-dim text-3xl">terminal</span>
+            <h1 class="font-code-lg text-primary-fixed-dim tracking-[0.2em] font-extrabold uppercase">
+              IDENTITY_VERIFICATION
+            </h1>
+          </div>
+          <div class="h-px w-full bg-outline-variant/30 mb-unit-1"></div>
+          <div class="flex justify-between items-center px-unit-1">
+            <span class="font-label-sm text-primary-fixed-dim/60 uppercase">[ SYSTEM: READY ]</span>
+            <span class="font-label-sm text-primary-fixed-dim/60 uppercase">[ NODE: 802.11.X ]</span>
+          </div>
+        </header>
+
+        <form class="space-y-unit-8" method="post" action="{{ url_for('login') }}" data-ajax-form data-loading-message="Verifying operator key">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <div class="space-y-unit-2">
+                {% for category, message in messages %}
+                  <div class="border px-unit-4 py-unit-2 font-label-sm text-xs uppercase tracking-widest {% if category == 'error' %}border-error bg-error-container/40 text-on-error-container{% else %}border-primary-fixed-dim/50 bg-primary-fixed-dim/10 text-primary-fixed{% endif %}">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
+
+          {% if not has_users %}
+            <div class="border border-primary-fixed-dim/50 bg-primary-fixed-dim/10 px-unit-4 py-unit-2 font-label-sm text-xs uppercase tracking-widest text-primary-fixed">
+              No operator exists. Create one from terminal first.
+            </div>
+          {% endif %}
+
+          <div class="space-y-unit-2">
+            <label class="block font-label-sm text-primary-fixed-dim/80 uppercase tracking-widest pl-unit-1" for="username">
+              OPERATOR_ID
+            </label>
+            <div class="relative">
+              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50 material-symbols-outlined">alternate_email</span>
+              <input class="w-full bg-surface-container-lowest/50 border border-outline-variant py-unit-4 pl-unit-12 pr-unit-4 font-code-md text-primary-fixed placeholder:text-primary-fixed-dim/20 transition-all focus:border-primary-container" id="username" name="username" placeholder="admin" type="text" autocomplete="username" required autofocus>
+            </div>
+          </div>
+
+          <div class="space-y-unit-2">
+            <label class="block font-label-sm text-primary-fixed-dim/80 uppercase tracking-widest pl-unit-1" for="password">
+              ACCESS_KEY
+            </label>
+            <div class="relative">
+              <span class="absolute left-unit-4 top-1/2 -translate-y-1/2 text-primary-fixed-dim/50 material-symbols-outlined">key</span>
+              <input class="w-full bg-surface-container-lowest/50 border border-outline-variant py-unit-4 pl-unit-12 pr-unit-4 font-code-md text-primary-fixed placeholder:text-primary-fixed-dim/20 transition-all focus:border-primary-container" id="password" name="password" placeholder="************" type="password" autocomplete="current-password" required>
+              <div class="absolute right-unit-4 top-1/2 -translate-y-1/2 flex gap-unit-2">
+                <span class="w-2 h-4 bg-primary-fixed-dim/20 animate-pulse"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-unit-4">
+            <button class="group w-full relative overflow-hidden bg-transparent border-2 border-primary-fixed-dim py-unit-4 px-unit-8 transition-all hover:bg-primary-fixed-dim active:scale-95" type="submit">
+              <div class="flex items-center justify-center gap-unit-2">
+                <span class="font-code-md font-bold text-primary-fixed-dim group-hover:text-surface uppercase tracking-widest">
+                  ENTER_THE_CONSTRUCT
+                </span>
+                <span class="material-symbols-outlined text-primary-fixed-dim group-hover:text-surface">login</span>
+              </div>
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-unit-12 grid grid-cols-2 gap-unit-4">
+          <div class="p-unit-2 border border-outline-variant/20">
+            <p class="font-label-sm text-primary-fixed-dim/40 text-[10px]">SCAN_MODE: SAFE</p>
+            <div class="w-full h-1 bg-surface-variant mt-1">
+              <div class="w-[100%] h-full bg-primary-fixed-dim"></div>
+            </div>
+          </div>
+          <div class="p-unit-2 border border-outline-variant/20">
+            <p class="font-label-sm text-primary-fixed-dim/40 text-[10px]">AUTH: LOCAL</p>
+            <div class="w-full h-1 bg-surface-variant mt-1">
+              <div class="w-[42%] h-full bg-primary-fixed-dim"></div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="mt-unit-8 flex flex-col items-center gap-unit-2">
+          <div class="flex items-center gap-unit-2">
+            <span class="w-2 h-2 rounded-full bg-primary-fixed-dim animate-ping"></span>
+            <p class="font-label-sm text-primary-fixed-dim/80 uppercase tracking-tighter">
+              SECURE_SESSION_REQUIRED
+            </p>
+          </div>
+          <div class="text-[8px] font-label-sm text-primary-fixed-dim/30 tracking-[0.3em] uppercase">
+            Password hash storage | Local operator access
+          </div>
+        </footer>
+      </div>
+
+      <div class="fixed bottom-margin-desktop right-margin-desktop hidden lg:block opacity-40 pointer-events-none">
+        <div class="p-unit-4 border-l-2 border-primary-fixed-dim font-code-md text-primary-fixed-dim/50 space-y-1">
+          <p>&gt; BOOT_SEQUENCE: OK</p>
+          <p>&gt; NETWORK_INTERFACE: LOCAL</p>
+          <p>&gt; PUBLIC_TARGETS: BLOCKED</p>
+          <p>&gt; WAITING_FOR_OPERATOR_INPUT_</p>
+        </div>
+      </div>
+
+      <div class="fixed top-margin-desktop left-margin-desktop opacity-20 pointer-events-none">
+        <div class="relative w-32 h-32">
+          <div class="absolute inset-0 border border-primary-fixed-dim rotate-45"></div>
+          <div class="absolute inset-2 border border-primary-fixed-dim -rotate-12"></div>
+          <div class="absolute inset-0 flex items-center justify-center font-code-lg text-primary-fixed-dim font-black">
+            NS
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="fixed right-0 top-0 bottom-0 w-1/4 hidden xl:block opacity-10 grayscale brightness-50 mix-blend-screen pointer-events-none overflow-hidden">
+      <img alt="Glowing green circuit board" class="h-full w-full object-cover" src="https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80">
+    </div>
+    <script>
+      (() => {
+        const canvas = document.getElementById("matrix-rain");
+        if (!canvas || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          return;
+        }
+
+        const context = canvas.getContext("2d");
+        const glyphs = "01ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%&@";
+        const fontSize = 16;
+        let columns = 0;
+        let drops = [];
+        let animationFrame = null;
+
+        function resizeMatrixRain() {
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(window.innerWidth * ratio);
+          canvas.height = Math.floor(window.innerHeight * ratio);
+          canvas.style.width = `${window.innerWidth}px`;
+          canvas.style.height = `${window.innerHeight}px`;
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+          columns = Math.ceil(window.innerWidth / fontSize);
+          drops = Array.from({ length: columns }, () => Math.floor(Math.random() * -window.innerHeight / fontSize));
+        }
+
+        function drawMatrixRain() {
+          context.fillStyle = "rgba(0, 0, 0, 0.08)";
+          context.fillRect(0, 0, window.innerWidth, window.innerHeight);
+          context.font = `${fontSize}px JetBrains Mono, monospace`;
+
+          for (let index = 0; index < drops.length; index += 1) {
+            const glyph = glyphs[Math.floor(Math.random() * glyphs.length)];
+            const x = index * fontSize;
+            const y = drops[index] * fontSize;
+            context.fillStyle = Math.random() > 0.975 ? "#d8ffe0" : "#00ff41";
+            context.fillText(glyph, x, y);
+
+            if (y > window.innerHeight && Math.random() > 0.965) {
+              drops[index] = 0;
+            } else {
+              drops[index] += 1;
+            }
+          }
+
+          animationFrame = window.setTimeout(() => {
+            window.requestAnimationFrame(drawMatrixRain);
+          }, 42);
+        }
+
+        resizeMatrixRain();
+        drawMatrixRain();
+        window.addEventListener("resize", resizeMatrixRain);
+        window.addEventListener("beforeunload", () => {
+          if (animationFrame) {
+            window.clearTimeout(animationFrame);
+          }
+        });
+      })();
+
+      (() => {
+        const loader = document.getElementById("ajax-loader");
+        const loaderMessage = document.getElementById("ajax-loader-message");
+        const elapsedNode = document.getElementById("ajax-elapsed");
+        const estimateNode = document.getElementById("ajax-estimate");
+        const alertPanel = document.getElementById("matrix-alert");
+        const alertClose = document.getElementById("matrix-alert-close");
+        const alertAction = document.getElementById("matrix-alert-action");
+        const alertMethod = document.getElementById("matrix-alert-method");
+        const alertElapsed = document.getElementById("matrix-alert-elapsed");
+        const alertError = document.getElementById("matrix-alert-error");
+        let loaderTimer = null;
+        let startedAt = 0;
+
+        function formatSeconds(seconds) {
+          const safeSeconds = Math.max(0, Math.floor(seconds));
+          return safeSeconds < 60 ? `${String(safeSeconds).padStart(2, "0")}s` : `${Math.floor(safeSeconds / 60)}m ${String(safeSeconds % 60).padStart(2, "0")}s`;
+        }
+
+        function showLoader(message) {
+          if (loaderMessage) {
+            loaderMessage.textContent = `> ${message || "Processing request"}_`;
+          }
+          if (estimateNode) {
+            estimateNode.textContent = "~1-3s";
+          }
+          startedAt = Date.now();
+          if (elapsedNode) {
+            elapsedNode.textContent = "00s";
+          }
+          if (loaderTimer) {
+            clearInterval(loaderTimer);
+          }
+          loaderTimer = setInterval(() => {
+            if (elapsedNode) {
+              elapsedNode.textContent = formatSeconds((Date.now() - startedAt) / 1000);
+            }
+          }, 250);
+          if (loader) {
+            loader.classList.add("is-active");
+          }
+        }
+
+        function hideLoader() {
+          if (loaderTimer) {
+            clearInterval(loaderTimer);
+            loaderTimer = null;
+          }
+          if (loader) {
+            loader.classList.remove("is-active");
+          }
+        }
+
+        function showMatrixAlert(payload) {
+          if (alertAction) alertAction.textContent = payload.action || "-";
+          if (alertMethod) alertMethod.textContent = (payload.method || "-").toUpperCase();
+          if (alertElapsed) alertElapsed.textContent = `${Math.round((payload.elapsed_ms || 0) / 1000)}s`;
+          if (alertError) alertError.textContent = payload.message || "Request failed";
+          if (alertPanel) alertPanel.classList.add("is-active");
+        }
+
+        if (alertClose && alertPanel) {
+          alertClose.addEventListener("click", () => alertPanel.classList.remove("is-active"));
+        }
+
+        if (alertPanel) {
+          alertPanel.addEventListener("click", (event) => {
+            if (event.target === alertPanel) {
+              alertPanel.classList.remove("is-active");
+            }
+          });
+        }
+
+        function logClientError(payload) {
+          const body = JSON.stringify(payload);
+          if (navigator.sendBeacon) {
+            const blob = new Blob([body], { type: "application/json" });
+            navigator.sendBeacon("/client-error", blob);
+            return;
+          }
+          fetch("/client-error", {
+            method: "POST",
+            body,
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }).catch(() => {});
+        }
+
+        async function submitAjaxForm(form) {
+          const requestStartedAt = Date.now();
+          showLoader(form.dataset.loadingMessage);
+          try {
+            const response = await fetch(form.action, {
+              method: form.method || "POST",
+              body: new FormData(form),
+              credentials: "same-origin",
+              headers: {
+                "X-Requested-With": "XMLHttpRequest"
+              }
+            });
+            const html = await response.text();
+            if (!response.ok) {
+              throw new Error(`Request failed with HTTP ${response.status}`);
+            }
+            document.open();
+            document.write(html);
+            document.close();
+          } catch (error) {
+            hideLoader();
+            const message = error instanceof Error ? error.message : "Request failed";
+            const payload = {
+              message,
+              action: form.action,
+              method: form.method || "POST",
+              route: window.location.pathname,
+              elapsed_ms: Date.now() - requestStartedAt
+            };
+            logClientError(payload);
+            showMatrixAlert(payload);
+          }
+        }
+
+        document.querySelectorAll("form[data-ajax-form]").forEach((form) => {
+          form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            submitAjaxForm(form);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

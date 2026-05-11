@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env.local
+data/users.json
+data/error_logs.jsonl
+reports/network_scan.csv
+reports/network_scan.json
+reports/network_scan.md
